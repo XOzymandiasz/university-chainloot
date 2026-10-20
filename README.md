@@ -1,4 +1,4 @@
-# university-blockchain
+# ChainLoot
 
 ## Smart Contracts — Development Setup
 
@@ -35,6 +35,27 @@ forge --version
 cast --version
 anvil --version
 ```
+
+### Install Dependencies
+
+The project uses Git submodules to manage Solidity dependencies:
+
+- **forge-std** — Foundry's standard library for smart contract testing.
+- **OpenZeppelin Contracts** — reusable and audited implementations of Ethereum smart contracts.
+
+If cloning the repository for the first time:
+
+```bash
+git clone --recurse-submodules <repository-url>
+```
+
+If the repository has already been cloned, navigate to its root directory and run:
+
+```bash
+git submodule update --init --recursive
+```
+
+This downloads all dependencies at the exact versions recorded in the repository.
 
 ### Build and Test
 
