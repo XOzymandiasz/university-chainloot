@@ -12,6 +12,10 @@ contract GameItems is ERC721 {
     mapping(uint256 => Status) private statuses;
 
     error ItemAlreadyExists(uint256 tokenId);
+    error NotItemOwner(uint256 tokenId, address caller);
+    error ItemAlreadyRedeemed(uint256 tokenId);
+
+    event ItemRedeemed(uint256 indexed tokenId, address indexed owner);
 
     constructor() ERC721("ChainLoot Items", "LOOT") {}
 
@@ -28,8 +32,38 @@ contract GameItems is ERC721 {
         return tokenId;
     }
 
+    function redeem(uint256 tokenId) external {
+        address owner = _ownerOf(tokenId);
+
+        if (owner != msg.sender) {
+            revert NotItemOwner(tokenId, msg.sender);
+        }
+
+        if (statuses[tokenId] == Status.REDEEMED) {
+            revert ItemAlreadyRedeemed(tokenId);
+        }
+
+        statuses[tokenId] = Status.REDEEMED;
+        emit ItemRedeemed(tokenId, owner);
+    }
+
     function getStatus(uint256 tokenId) external view returns (Status) {
         ownerOf(tokenId);
         return statuses[tokenId];
+    }
+
+    function _update(
+        address to,
+        uint256 tokenId,
+        address auth
+    ) internal override returns (address) {
+        if (
+            _ownerOf(tokenId) != address(0) &&
+            statuses[tokenId] == Status.REDEEMED
+        ) {
+            revert ItemAlreadyRedeemed(tokenId);
+        }
+
+        return super._update(to, tokenId, auth);
     }
 }
