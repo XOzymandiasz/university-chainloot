@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
@@ -16,25 +15,20 @@ contract GameItems is ERC721 {
 
     constructor() ERC721("ChainLoot Items", "LOOT") {}
 
-    function issue(
-        address recipient,
-        uint128 uuid
-    ) external returns (uint256) {
+    function issue(address recipient, uint128 uuid) external returns (uint256) {
         uint256 tokenId = uint256(uuid);
 
         if (_ownerOf(tokenId) != address(0)) {
             revert ItemAlreadyExists(tokenId);
         }
 
-        _mint(recipient, tokenId);
+        _safeMint(recipient, tokenId);
         statuses[tokenId] = Status.ACTIVE;
 
         return tokenId;
     }
 
-    function getStatus(
-        uint256 tokenId
-    ) external view returns (Status) {
+    function getStatus(uint256 tokenId) external view returns (Status) {
         ownerOf(tokenId);
         return statuses[tokenId];
     }
