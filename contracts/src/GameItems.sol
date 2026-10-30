@@ -32,6 +32,13 @@ contract GameItems is ERC721 {
         return tokenId;
     }
 
+    function transferFrom(address from, address to, uint256 tokenId) public override {
+        if (ownerOf(tokenId) != msg.sender) {
+            revert NotItemOwner(tokenId, msg.sender);
+        }
+        super.transferFrom(from, to, tokenId);
+    }
+
     function redeem(uint256 tokenId) external {
         address owner = _ownerOf(tokenId);
 

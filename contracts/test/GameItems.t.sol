@@ -8,11 +8,51 @@ contract GameItemsTest is Test {
     GameItems private items;
     address private alice = makeAddr("alice");
     address private bob = makeAddr("bob");
+    address private charlie = makeAddr("charlie");
     uint256 private constant ITEM = 1;
 
     function setUp() public {
         items = new GameItems();
         items.issue(alice, uint128(ITEM));
+    }
+
+    function testIssueCreatesActiveItemAndRejectsDuplicate() public {
+        assertEq(items.ownerOf(ITEM), alice);
+        assertEq(uint256(items.getStatus(ITEM)), uint256(GameItems.Status.ACTIVE));
+        vm.expectRevert(abi.encodeWithSelector(GameItems.ItemAlreadyExists.selector, ITEM));
+        items.issue(bob, uint128(ITEM));
+        assertEq(items.ownerOf(ITEM), alice);
+    }
+
+    function testOwnerCanTransferAndNonOwnerCannot() public {
+        vm.prank(alice);
+        items.transferFrom(alice, bob, ITEM);
+        assertEq(items.ownerOf(ITEM), bob);
+        assertEq(uint256(items.getStatus(ITEM)), uint256(GameItems.Status.ACTIVE));
+
+        vm.prank(charlie);
+        vm.expectRevert(abi.encodeWithSelector(GameItems.NotItemOwner.selector, ITEM, charlie));
+        items.transferFrom(bob, charlie, ITEM);
+        assertEq(items.ownerOf(ITEM), bob);
+        assertEq(uint256(items.getStatus(ITEM)), uint256(GameItems.Status.ACTIVE));
+    }
+
+    function testApprovedOperatorCannotTransfer() public {
+        vm.prank(alice);
+        items.approve(charlie, ITEM);
+        vm.prank(charlie);
+        vm.expectRevert(abi.encodeWithSelector(GameItems.NotItemOwner.selector, ITEM, charlie));
+        items.transferFrom(alice, bob, ITEM);
+        assertEq(items.ownerOf(ITEM), alice);
+    }
+
+    function testApprovedOperatorCannotSafeTransfer() public {
+        vm.prank(alice);
+        items.setApprovalForAll(charlie, true);
+        vm.prank(charlie);
+        vm.expectRevert(abi.encodeWithSelector(GameItems.NotItemOwner.selector, ITEM, charlie));
+        items.safeTransferFrom(alice, bob, ITEM);
+        assertEq(items.ownerOf(ITEM), alice);
     }
 
     function testOwnerCanRedeemAndRemainsOwner() public {
