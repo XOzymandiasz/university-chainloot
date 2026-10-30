@@ -98,3 +98,43 @@ cast block-number --rpc-url http://127.0.0.1:8545
 ```
 
 > Anvil is intended for local development and testing. Public blockchain demonstrations use the Ethereum Sepolia testnet.
+
+## Frontend setup
+
+The frontend uses Vue, TypeScript, and Vite. Run these commands in Ubuntu when using WSL.
+
+### Prerequisites
+
+Install Node.js 24 LTS and npm. Check your versions with:
+
+```bash
+node --version
+npm --version
+```
+
+If you use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating), install and select Node.js 24 with:
+
+```bash
+nvm install 24
+nvm use 24
+```
+
+### Install and run
+
+From the repository root, install the dependencies and start the development server:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open the local address printed by Vite, usually http://localhost:5173/. Keep the terminal open while using the app; press Ctrl+C to stop the server. On later runs, start the server with `npm run dev` from the `frontend` directory.
+
+To check the production build, run:
+
+```bash
+npm run build
+```
+
+The frontend currently contains the default Vue starter page; it is not yet connected to the smart contracts.
