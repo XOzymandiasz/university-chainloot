@@ -26,8 +26,8 @@ contract GameItems is ERC721 {
             revert ItemAlreadyExists(tokenId);
         }
 
-        _safeMint(recipient, tokenId);
         statuses[tokenId] = Status.ACTIVE;
+        _safeMint(recipient, tokenId);
 
         return tokenId;
     }

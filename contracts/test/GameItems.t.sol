@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {GameItems} from "../src/GameItems.sol";
+import {IERC721Receiver} from "../lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 
 contract GameItemsTest is Test {
     GameItems private items;
@@ -112,8 +113,32 @@ contract GameItemsTest is Test {
         );
     }
 
+    function testItemRedeemedDuringMintStaysRedeemed() public {
+        RedeemingReceiver receiver = new RedeemingReceiver(items);
+        items.issue(address(receiver), 2);
+
+        assertEq(items.ownerOf(2), address(receiver));
+        assertEq(uint256(items.getStatus(2)), uint256(GameItems.Status.REDEEMED));
+        vm.prank(address(receiver));
+        vm.expectRevert(abi.encodeWithSelector(GameItems.ItemAlreadyRedeemed.selector, 2));
+        items.transferFrom(address(receiver), bob, 2);
+    }
+
     function testCannotRedeemNonexistentItem() public {
         vm.expectRevert();
         items.redeem(999);
+    }
+}
+
+contract RedeemingReceiver is IERC721Receiver {
+    GameItems private immutable items;
+
+    constructor(GameItems _items) {
+        items = _items;
+    }
+
+    function onERC721Received(address, address, uint256 tokenId, bytes calldata) external returns (bytes4) {
+        items.redeem(tokenId);
+        return IERC721Receiver.onERC721Received.selector;
     }
 }
