@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: chainloot
+      POSTGRES_USER: chainloot
+      POSTGRES_PASSWORD: chainloot
+    volumes:
+      - chainloot-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chainloot -d chainloot"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    volumes:
+      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  backend:
+    build: ./backend
+    environment:
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=chainloot;Username=chainloot;Password=chainloot
+      Mqtt__Host: mqtt
+      Mqtt__Port: 1883
+      Blockchain__RpcUrl: http://host.docker.internal:8545
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    ports:
+      - "127.0.0.1:5000:5000"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:5174:80"
+
+volumes:
+  chainloot-postgres:
