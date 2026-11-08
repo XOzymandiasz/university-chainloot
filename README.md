@@ -1,108 +1,51 @@
 # ChainLoot
 
-## Wersja rozproszona — uruchomienie bez internetu
+A local three-node system for issuing, transferring and redeeming digital assets. The distributed version runs entirely on this computer; no public blockchain or wallet account is required.
 
-Projekt zawiera lokalny system trzech niezależnych węzłów. Każdy węzeł działa
-jako osobny proces i ma własną bazę PostgreSQL oraz własny trwały dziennik.
-Węzły wybierają lidera, replikują operacje i zatwierdzają je po uzyskaniu
-większości. Po awarii węzeł automatycznie pobiera brakujący stan.
+## Start
 
-Węzły i ich bazy są podłączone do wewnętrznej sieci Dockera. Strona i lokalne
-bramki są dostępne tylko na `127.0.0.1`. Program nie korzysta z publicznego
-blockchaina, zewnętrznego RPC ani usług kontowych. Operacje są podpisywane
-lokalnie w przeglądarce; backend otrzymuje podpis i klucz publiczny, a nie
-klucz prywatny. Lokalna bramka udostępnia węzły przeglądarce; nie jest używana
-do komunikacji między samymi węzłami.
+Prerequisites: Docker Desktop; Windows .NET SDK 9 and cached NuGet dependencies; Ubuntu/WSL with Node.js 24 and `frontend/node_modules`; and local Docker images `postgres:16-alpine`, `university-chainloot-backend:latest` and `university-chainloot-frontend:latest`. The startup script requires the WSL distribution named `Ubuntu` and tries Node.js at `~/.nvm/versions/node/v24.22.2/bin` before the regular `PATH`.
 
-### Wymagane wcześniej na komputerze
-
-- Docker Desktop oraz lokalnie dostępne obrazy `postgres:16-alpine`,
-  `university-chainloot-backend:latest` i `university-chainloot-frontend:latest`.
-- Windowsowy zestaw .NET SDK 9 lub nowszy i przywrócone lokalnie zależności
-  projektu `backend` (plik `obj/project.assets.json` oraz cache NuGet).
-- Ubuntu/WSL, Node.js 24 oraz lokalny katalog `frontend/node_modules`.
-
-Skrypt nie instaluje zależności ani nie pobiera obrazów. Jeżeli czegoś brakuje,
-zatrzyma się z komunikatem; nie próbuje łączyć się z internetem.
-
-### Start
-
-Uruchom Docker Desktop. W PowerShellu, w katalogu repozytorium, wykonaj:
+Start Docker Desktop, then run in PowerShell from the repository root:
 
 ```powershell
 ./scripts/start-cluster-offline.ps1
 ```
 
-Skrypt buduje backend z `--no-restore`, buduje frontend z npm w trybie offline,
-tworzy obrazy z lokalnie dostępnych obrazów bazowych i uruchamia usługi z
-`--pull never`. Otwórz **http://127.0.0.1:5175/**.
+Open [http://127.0.0.1:5175/](http://127.0.0.1:5175/). The script uses existing dependencies and images; it does not download them. Each node uses its own PostgreSQL database.
 
-1. Dodaj lokalnego użytkownika, np. Alice. Klucz prywatny zostaje zapisany jako
-   nieeksportowalny klucz przeglądarki w IndexedDB.
-2. Do demonstracji niezależnych użytkowników przygotuj Alice, Boba i Charliego
-   w osobnych profilach przeglądarki; przekaż pozostałym tylko ich adresy.
-3. Wybierz węzeł, wpisz ID i adres odbiorcy, a następnie wybierz operację.
-4. Stan i historię możesz odczytać z każdego węzła. Przycisk ponownego wysłania
-   ostatniej operacji pozwala sprawdzić ochronę przed replay.
-
-Wyczyszczenie danych profilu przeglądarki usuwa jego klucze. Nie używaj tych
-kont ani testowych danych do prawdziwych aktywów.
-
-### Testy T1–T14
-
-W Windows PowerShell, z katalogu repozytorium, uruchom test bezpośrednio przez
-Node.js 24 lub nowszy:
-
-```powershell
-node --test frontend/tests/cluster.test.mjs
-```
-
-Test tworzy osobny projekt Docker z trzema osobnymi bazami, wykonuje T1–T14 i
-usuwa wyłącznie własne kontenery oraz testowe wolumeny. Sprawdza podpisy,
-ponowne wysłanie tej samej operacji, historię, awarię węzła, dwa konfliktujące
-transfery i partycję komunikacji. Partycja jest symulowana przez zablokowanie
-wysyłania i odbierania komunikatów między wskazanymi węzłami. Test T14 używa
-nowego aktywa jako stanu początkowego po zakończeniu T13.
-
-Aktualny klaster można zatrzymać bez usuwania danych:
+Stop the cluster without deleting its data:
 
 ```powershell
 docker compose -p chainloot-cluster -f docker-compose.cluster.yml down
 ```
 
-Nie używaj opcji `--volumes`, jeśli dane klastra mają pozostać. Do rozpoczęcia
-prezentacji z czystym stanem można przygotować osobny projekt Compose z nową
-nazwą i wolumenami. Wynik testu automatycznego nie zastępuje demonstracji i
-oceny prowadzącego.
+For a clean demonstration, first stop the cluster and **only if its saved data is no longer needed**, remove its volumes with `docker compose -p chainloot-cluster -f docker-compose.cluster.yml down --volumes`, then start it again. This permanently deletes that cluster's saved assets and history.
 
-### Interfejsy lokalne
+## Demonstration
 
-- `http://127.0.0.1:5101/cluster/status` — węzeł A.
-- `http://127.0.0.1:5102/cluster/status` — węzeł B.
-- `http://127.0.0.1:5103/cluster/status` — węzeł C.
-- `/cluster/assets/{id}` — stan odczytywany z wybranego węzła.
-- `/cluster/history/{id}` — chronologiczna historia zatwierdzonych operacji.
-- `/cluster/operations` — przesłanie podpisanej operacji.
+1. Open the application in three separate browser profiles. Create Alice, Bob and Charlie under **Local users**, one per profile, and copy their addresses. Each private key stays in its own browser profile; clearing that profile's data removes the key.
+2. Select a node, enter an asset ID and recipient address, and use **Issue asset**, **Transfer asset**, **Redeem asset** or **Inspect asset**. The result is shown as `SUCCESS`, `REJECTED`, `FAILED` or `PENDING`; inspect the asset after a pending result before retrying.
+3. For T1–T6, issue A1 to Alice, transfer it to Bob, try a transfer as Charlie, then redeem it as Bob. Check that a second redemption and a transfer both fail while Bob remains the owner.
+4. For T7–T8, issue A2 to Alice, demonstrate rejection of unsigned and incorrectly signed requests, then transfer it to Bob as Alice. Use **Resend last operation** to submit the exact same signed request and check it is rejected. The automated test below performs the unsigned and wrong-signature requests; the interface does not provide buttons for them.
+5. For T9–T10, issue A3 to Alice, transfer it to Bob and then Charlie, and redeem it as Charlie. Inspect its ordered history. With the main frontend closed, read the state from a node's independent database through `http://127.0.0.1:5102/cluster/assets/<id>`.
+6. For T11–T12, issue A4 to Alice, transfer it to Bob through node A and inspect it through B and C. Stop A with the command below, transfer A4 from Bob to Charlie through B, and inspect C. Restart A and inspect its synchronized state.
 
-Algorytm wyboru lidera i replikacji jest implementacją demonstracyjną na potrzeby
-projektu, a nie rozwiązaniem przetestowanym do zastosowań produkcyjnych.
-Endpointy `/cluster/test/partition` są włączone tylko do lokalnych testów.
-
-## Wersja z Anvil
-
-W repozytorium pozostaje również wcześniejszy wariant z kontraktem ERC-721,
-frontendem Vue oraz backendem .NET indeksującym zdarzenia w PostgreSQL i
-publikującym aktualizacje przez MQTT i SignalR. Wymaga lokalnego Anvil i jest
-odrębny od systemu trzech węzłów. Testy jego kontraktu można uruchomić w WSL:
-
-```bash
-cd contracts
-forge test
-cd ../frontend
-npm run test:grade3
-npm run test:grade35
-npm run test:grade4
+```powershell
+docker compose -p chainloot-cluster -f docker-compose.cluster.yml stop node-a
+docker compose -p chainloot-cluster -f docker-compose.cluster.yml start node-a
 ```
 
-Te testy uruchamiają osobny Anvil na porcie lokalnym i nie modyfikują stanu
-użytkownika. Wersja rozproszona opisana powyżej służy do testów T1–T14 ścieżki A.
+7. For T13–T14, use the automated scenario below: it prepares two conflicting signed transfers, sends them through different nodes, partitions the cluster, and verifies convergence after communication is restored. T14 uses a fresh asset so Alice owns its initial state. These conflict and partition controls are not exposed as presentation buttons in the interface.
+
+## Run all scenarios
+
+With Docker Desktop running and the cluster images already prepared by the startup script, run from the repository root using Node.js 24 or newer:
+
+```powershell
+node --test frontend/tests/cluster.test.mjs
+```
+
+The test creates its own isolated Compose project and databases, runs T1–T14, and deletes only its own containers and test volumes. Its output reports each group of scenarios. An automated pass does not replace the live demonstration.
+
+The separate Anvil/ERC-721 version and its tests are also included in `contracts/` and `frontend/tests/`.
