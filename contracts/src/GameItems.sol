@@ -59,15 +59,8 @@ contract GameItems is ERC721 {
         return statuses[tokenId];
     }
 
-    function _update(
-        address to,
-        uint256 tokenId,
-        address auth
-    ) internal override returns (address) {
-        if (
-            _ownerOf(tokenId) != address(0) &&
-            statuses[tokenId] == Status.REDEEMED
-        ) {
+    function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
+        if (_ownerOf(tokenId) != address(0) && statuses[tokenId] == Status.REDEEMED) {
             revert ItemAlreadyRedeemed(tokenId);
         }
 

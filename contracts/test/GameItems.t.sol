@@ -60,45 +60,28 @@ contract GameItemsTest is Test {
         vm.prank(alice);
         items.redeem(ITEM);
         assertEq(items.ownerOf(ITEM), alice);
-        assertEq(
-            uint256(items.getStatus(ITEM)),
-            uint256(GameItems.Status.REDEEMED)
-        );
+        assertEq(uint256(items.getStatus(ITEM)), uint256(GameItems.Status.REDEEMED));
     }
 
     function testNonOwnerCannotRedeem() public {
         vm.prank(bob);
-        vm.expectRevert(
-            abi.encodeWithSelector(GameItems.NotItemOwner.selector, ITEM, bob)
-        );
+        vm.expectRevert(abi.encodeWithSelector(GameItems.NotItemOwner.selector, ITEM, bob));
         items.redeem(ITEM);
-        assertEq(
-            uint256(items.getStatus(ITEM)),
-            uint256(GameItems.Status.ACTIVE)
-        );
+        assertEq(uint256(items.getStatus(ITEM)), uint256(GameItems.Status.ACTIVE));
     }
 
     function testCannotRedeemTwiceOrTransferAfterRedeem() public {
         vm.startPrank(alice);
         items.redeem(ITEM);
-        vm.expectRevert(
-            abi.encodeWithSelector(GameItems.ItemAlreadyRedeemed.selector, ITEM)
-        );
+        vm.expectRevert(abi.encodeWithSelector(GameItems.ItemAlreadyRedeemed.selector, ITEM));
         items.redeem(ITEM);
-        vm.expectRevert(
-            abi.encodeWithSelector(GameItems.ItemAlreadyRedeemed.selector, ITEM)
-        );
+        vm.expectRevert(abi.encodeWithSelector(GameItems.ItemAlreadyRedeemed.selector, ITEM));
         items.transferFrom(alice, bob, ITEM);
-        vm.expectRevert(
-            abi.encodeWithSelector(GameItems.ItemAlreadyRedeemed.selector, ITEM)
-        );
+        vm.expectRevert(abi.encodeWithSelector(GameItems.ItemAlreadyRedeemed.selector, ITEM));
         items.safeTransferFrom(alice, bob, ITEM);
         vm.stopPrank();
         assertEq(items.ownerOf(ITEM), alice);
-        assertEq(
-            uint256(items.getStatus(ITEM)),
-            uint256(GameItems.Status.REDEEMED)
-        );
+        assertEq(uint256(items.getStatus(ITEM)), uint256(GameItems.Status.REDEEMED));
     }
 
     function testNewOwnerCanRedeemAfterTransfer() public {
@@ -107,10 +90,7 @@ contract GameItemsTest is Test {
         vm.prank(bob);
         items.redeem(ITEM);
         assertEq(items.ownerOf(ITEM), bob);
-        assertEq(
-            uint256(items.getStatus(ITEM)),
-            uint256(GameItems.Status.REDEEMED)
-        );
+        assertEq(uint256(items.getStatus(ITEM)), uint256(GameItems.Status.REDEEMED));
     }
 
     function testItemRedeemedDuringMintStaysRedeemed() public {
