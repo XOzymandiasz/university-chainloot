@@ -4,15 +4,15 @@ A local three-node system for issuing, transferring and redeeming digital assets
 
 ## Start
 
-Prerequisites: Docker Desktop; Windows .NET SDK 9 and cached NuGet dependencies; Ubuntu/WSL with Node.js 24 and `frontend/node_modules`; and local Docker images `postgres:16-alpine`, `university-chainloot-backend:latest` and `university-chainloot-frontend:latest`. The startup script requires the WSL distribution named `Ubuntu` and tries Node.js at `~/.nvm/versions/node/v24.22.2/bin` before the regular `PATH`.
+Prerequisite: Docker Desktop.
 
-Start Docker Desktop, then run in PowerShell from the repository root:
+From the repository root, build and start the application:
 
 ```powershell
-./scripts/start-cluster-offline.ps1
+docker compose up -d --build
 ```
 
-Open [http://127.0.0.1:5175/](http://127.0.0.1:5175/). The script uses existing dependencies and images; it does not download them. Each node uses its own PostgreSQL database.
+Open [http://127.0.0.1:5175/](http://127.0.0.1:5175/). Docker builds the frontend and .NET 10 backend. The first build downloads the required base images and packages; the running application remains local. Each node uses its own PostgreSQL database.
 
 Stop the cluster without deleting its data:
 
@@ -40,7 +40,7 @@ docker compose -p chainloot-cluster -f docker-compose.yml start node-a
 
 ## Run all scenarios
 
-With Docker Desktop running and the cluster images already prepared by the startup script, run from the repository root using Node.js 24 or newer:
+With Docker Desktop running and the cluster images already built using the commands above, run from the repository root using Node.js 24 or newer:
 
 ```powershell
 node --test frontend/tests/cluster.test.mjs
