@@ -51,6 +51,14 @@ let disposed = false
 const activeIdentity = computed(() =>
   identities.value.find((user) => user.address === selectedIdentity.value),
 )
+
+function addressLabel(address: string) {
+  const user = identities.value.find(
+    (item) => item.address.toLowerCase() === address.toLowerCase(),
+  )
+  return user ? user.name + ' · ' + address : address
+}
+
 const labels: Record<Action, string> = {
   issue: 'Issue',
   transfer: 'Transfer',
@@ -471,7 +479,7 @@ onUnmounted(() => {
             <span>Status</span><strong>{{ asset.status }}</strong>
           </div>
           <div class="owner">
-            <span>Owner</span><strong>{{ asset.owner }}</strong>
+            <span>Owner</span><strong>{{ addressLabel(asset.owner) }}</strong>
           </div>
         </div>
       </section>
@@ -492,8 +500,10 @@ onUnmounted(() => {
             <tbody>
               <tr v-for="entry in history" :key="entry.operationId">
                 <td>{{ labels[entry.type] }}</td>
-                <td class="address">{{ entry.sender }}</td>
-                <td class="address">{{ entry.recipient || '—' }}</td>
+                <td class="address">{{ addressLabel(entry.sender) }}</td>
+                <td class="address">
+                  {{ entry.recipient ? addressLabel(entry.recipient) : '—' }}
+                </td>
                 <td class="address">{{ entry.operationId }}</td>
               </tr>
             </tbody>
