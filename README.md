@@ -17,10 +17,10 @@ Open [http://127.0.0.1:5175/](http://127.0.0.1:5175/). The script uses existing 
 Stop the cluster without deleting its data:
 
 ```powershell
-docker compose -p chainloot-cluster -f docker-compose.cluster.yml down
+docker compose -p chainloot-cluster -f docker-compose.yml down
 ```
 
-For a clean demonstration, first stop the cluster and **only if its saved data is no longer needed**, remove its volumes with `docker compose -p chainloot-cluster -f docker-compose.cluster.yml down --volumes`, then start it again. This permanently deletes that cluster's saved assets and history.
+For a clean demonstration, first stop the cluster and **only if its saved data is no longer needed**, remove its volumes with `docker compose -p chainloot-cluster -f docker-compose.yml down --volumes`, then start it again. This permanently deletes that cluster's saved assets and history.
 
 ## Demonstration
 
@@ -32,8 +32,8 @@ For a clean demonstration, first stop the cluster and **only if its saved data i
 6. For T11–T12, issue A4 to Alice, transfer it to Bob through node A and inspect it through B and C. Stop A with the command below, transfer A4 from Bob to Charlie through B, and inspect C. Restart A and inspect its synchronized state.
 
 ```powershell
-docker compose -p chainloot-cluster -f docker-compose.cluster.yml stop node-a
-docker compose -p chainloot-cluster -f docker-compose.cluster.yml start node-a
+docker compose -p chainloot-cluster -f docker-compose.yml stop node-a
+docker compose -p chainloot-cluster -f docker-compose.yml start node-a
 ```
 
 7. For T13–T14, use the automated scenario below: it prepares two conflicting signed transfers, sends them through different nodes, partitions the cluster, and verifies convergence after communication is restored. T14 uses a fresh asset so Alice owns its initial state. These conflict and partition controls are not exposed as presentation buttons in the interface.
@@ -47,5 +47,3 @@ node --test frontend/tests/cluster.test.mjs
 ```
 
 The test creates its own isolated Compose project and databases, runs T1–T14, and deletes only its own containers and test volumes. Its output reports each group of scenarios. An automated pass does not replace the live demonstration.
-
-The separate Anvil/ERC-721 version and its tests are also included in `contracts/` and `frontend/tests/`.

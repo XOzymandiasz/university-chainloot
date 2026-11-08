@@ -261,7 +261,7 @@ onUnmounted(() => {
 <template>
   <div class="shell distributed">
     <header class="topbar">
-      <a class="brand" href="/cluster.html">ChainLoot</a>
+      <a class="brand" href="/">ChainLoot</a>
       <span class="local-label">Local network · 3 nodes</span>
     </header>
 

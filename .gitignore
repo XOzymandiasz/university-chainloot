@@ -1,2 +1,5 @@
 .idea
 /local-data/
+
+# Keep local legacy contract dependencies and build data untracked.
+/contracts/

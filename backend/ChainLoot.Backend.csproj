@@ -6,6 +6,5 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql" Version="8.0.6" />
-    <PackageReference Include="MQTTnet" Version="4.3.7.1207" />
   </ItemGroup>
 </Project>

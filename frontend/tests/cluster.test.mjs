@@ -12,7 +12,7 @@ const execFile = promisify(execFileCallback)
 const project = 'chainloot-test-' + randomBytes(4).toString('hex')
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const composeFile = fileURLToPath(
-  new URL('../../docker-compose.cluster.yml', import.meta.url),
+  new URL('../../docker-compose.yml', import.meta.url),
 )
 const docker = process.env.CHAINLOOT_DOCKER || 'docker'
 
@@ -128,7 +128,7 @@ test('T1–T14: local distributed system', { timeout: 180000 }, async () => {
     created = true
     await compose(env, 'up', '-d', '--no-build', '--pull', 'never')
     await readyLeader(bases)
-    const ui = await fetch(uiBase + '/cluster.html')
+    const ui = await fetch(uiBase + '/')
     assert.equal(ui.status, 200)
     const html = await ui.text()
     const styles = [...html.matchAll(/href="([^"]+[.]css)"/g)].map(

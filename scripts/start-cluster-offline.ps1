@@ -40,7 +40,7 @@ try {
 
     Update-LocalImage 'university-chainloot-backend:latest' 'backend/bin/Release/net9.0/publish/.' '/app/' 'university-chainloot-backend:local-cluster'
     Update-LocalImage 'university-chainloot-frontend:latest' 'frontend/dist/.' '/usr/share/nginx/html/' 'university-chainloot-frontend:local-cluster'
-    & docker compose -p chainloot-cluster -f docker-compose.cluster.yml up -d --no-build --pull never
+    & docker compose -p chainloot-cluster -f docker-compose.yml up -d --no-build --pull never
     if ($LASTEXITCODE -ne 0) { throw 'Could not start the local cluster.' }
     Write-Output 'Ready: http://127.0.0.1:5175/ — all services run locally.'
 } finally {
