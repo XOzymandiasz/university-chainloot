@@ -7,7 +7,7 @@ function localUrl(name) {
   const value = process.env[name]
   if (!value)
     throw new Error(
-      'Ustaw ' + name + ' na adres osobnego środowiska testowego.',
+      'Set ' + name + ' to the address of a separate test environment.',
     )
   const url = new URL(value)
   if (
@@ -16,14 +16,14 @@ function localUrl(name) {
     url.port === '8545'
   ) {
     throw new Error(
-      name + ' musi wskazywać oddzielny test na 127.0.0.1, poza portem 8545.',
+      name + ' must point to a separate test on 127.0.0.1, not port 8545.',
     )
   }
   return url.origin
 }
 
 test(
-  'T9–T10: historia backendu i odczyt niezależny od bazy',
+  'T9–T10: backend history and a read independent of the database',
   { timeout: 60000 },
   async () => {
     const rpcUrl = localUrl('CHAINLOOT_TEST_RPC_URL')
@@ -41,7 +41,7 @@ test(
       assert.equal(
         BigInt(await provider.send('eth_blockNumber', [])),
         0n,
-        'Test wymaga nowego, pustego Anvil.',
+        'The test requires a fresh, empty Anvil instance.',
       )
       const [alice, bob, charlie] = await Promise.all(
         [0, 1, 2].map((i) => provider.getSigner(i)),
@@ -113,7 +113,7 @@ test(
       )
       assert.equal((await json.json()).length, 4)
       console.log(
-        'T9: SUCCESS — backend zwraca cztery operacje i identyfikatory we właściwej kolejności',
+        'T9: SUCCESS — backend returns four operations and IDs in the correct order',
       )
 
       const ownerRaw = await independent.send('eth_call', [
@@ -139,7 +139,7 @@ test(
         1n,
       )
       console.log(
-        'T10: SUCCESS — niezależny odczyt RPC wskazuje Charlie i REDEEMED',
+        'T10: SUCCESS — independent RPC read confirms Charlie and REDEEMED',
       )
     } finally {
       provider.destroy()

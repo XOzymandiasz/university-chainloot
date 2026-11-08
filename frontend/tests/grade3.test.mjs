@@ -3,7 +3,7 @@ import test from 'node:test'
 import { withIsolatedChain } from './local-chain.mjs'
 
 test(
-  'T1–T6: pełny cykl aktywa na czystym, lokalnym Anvil',
+  'T1–T6: full asset lifecycle on a clean local Anvil',
   { timeout: 60000 },
   async () => {
     await withIsolatedChain(async ({ provider, items }) => {
@@ -22,15 +22,15 @@ test(
 
       await (await items.issue(aliceAddress, 1n)).wait()
       await state(aliceAddress, 0)
-      console.log('T1: SUCCESS — A1 należy do Alice i jest ACTIVE')
+      console.log('T1: SUCCESS — A1 belongs to Alice and is ACTIVE')
       await state(aliceAddress, 0)
-      console.log('T2: SUCCESS — odczyt właściciela wskazuje Alice')
+      console.log('T2: SUCCESS — owner lookup returns Alice')
 
       await (
         await items.connect(alice).transferFrom(aliceAddress, bobAddress, 1n)
       ).wait()
       await state(bobAddress, 0)
-      console.log('T3: SUCCESS — Bob jest właścicielem i A1 jest ACTIVE')
+      console.log('T3: SUCCESS — Bob owns A1 and it is ACTIVE')
 
       await assert.rejects(async () => {
         const tx = await items
@@ -39,11 +39,11 @@ test(
         await tx.wait()
       })
       await state(bobAddress, 0)
-      console.log('T4: REJECTED — Charlie nie może przekazać A1')
+      console.log('T4: REJECTED — Charlie cannot transfer A1')
 
       await (await items.connect(bob).redeem(1n)).wait()
       await state(bobAddress, 1)
-      console.log('T5: SUCCESS — A1 pozostaje u Boba i jest REDEEMED')
+      console.log('T5: SUCCESS — A1 remains with Bob and is REDEEMED')
 
       await assert.rejects(async () => {
         const tx = await items.connect(bob).redeem(1n)
@@ -58,7 +58,7 @@ test(
       })
       await state(bobAddress, 1)
       console.log(
-        'T6: REJECTED — ponowny REDEEM i TRANSFER nie zmieniają stanu',
+        'T6: REJECTED — repeated REDEEM and TRANSFER do not change the state',
       )
     })
   },

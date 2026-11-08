@@ -32,17 +32,17 @@ public sealed class RaftNode : BackgroundService
         _store = store;
         _clients = clients;
         _logger = logger;
-        _id = configuration["Cluster:NodeId"] ?? throw new InvalidOperationException("Brak identyfikatora węzła.");
+        _id = configuration["Cluster:NodeId"] ?? throw new InvalidOperationException("Missing node ID.");
         _allowTestControls = configuration.GetValue("Cluster:AllowTestControls", false);
         var entries = (configuration["Cluster:Peers"] ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
         var all = entries.Select(entry => entry.Split('=', 2)).ToDictionary(parts => parts[0], parts => parts[1].TrimEnd('/'));
-        if (all.Count != 3 || !all.ContainsKey(_id)) throw new InvalidOperationException("Konfiguracja wymaga dokładnie trzech węzłów.");
+        if (all.Count != 3 || !all.ContainsKey(_id)) throw new InvalidOperationException("Configuration requires exactly three nodes.");
         foreach (var address in all.Values)
         {
             var uri = new Uri(address);
             if (uri.Scheme != "http" || (uri.Host != "127.0.0.1" && uri.Host != "localhost" &&
                 uri.Host is not ("node-a" or "node-b" or "node-c")))
-                throw new InvalidOperationException("Adres węzła musi wskazywać wyłącznie sieć lokalną.");
+                throw new InvalidOperationException("The node address must point to the local network.");
         }
         _peers = all.Where(pair => pair.Key != _id).ToDictionary(pair => pair.Key, pair => pair.Value);
         ResetDeadline();
@@ -56,7 +56,7 @@ public sealed class RaftNode : BackgroundService
     {
         _state = await _store.LoadAsync(cancellationToken);
         if (_state.CommitIndex < 0 || _state.CommitIndex > _state.Log.Count)
-            throw new InvalidOperationException("Niepoprawny zapisany indeks zatwierdzenia.");
+            throw new InvalidOperationException("Invalid stored commit index.");
         ApplyFrom(0, _state.CommitIndex);
         ResetDeadline();
         await base.StartAsync(cancellationToken);
@@ -166,7 +166,7 @@ public sealed class RaftNode : BackgroundService
                 else if (role == "leader") await ReplicateAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
-            catch (Exception ex) { _logger.LogWarning("Węzeł {Id}: {Error}", _id, ex.Message); }
+            catch (Exception ex) { _logger.LogWarning("Node {Id}: {Error}", _id, ex.Message); }
         }
     }
 
@@ -293,15 +293,15 @@ public sealed class RaftNode : BackgroundService
 
     private string? Validate(SignedOperation op)
     {
-        if (!OperationVerifier.Verify(op)) return "Niepoprawny podpis lub dane operacji.";
-        if (_seen.Contains(op.OperationId)) return "Ta operacja została już wykonana.";
-        if (op.Nonce != _nonces.GetValueOrDefault(op.Sender) + 1) return "Niepoprawny numer operacji.";
+        if (!OperationVerifier.Verify(op)) return "Invalid signature or operation data.";
+        if (_seen.Contains(op.OperationId)) return "This operation has already been executed.";
+        if (op.Nonce != _nonces.GetValueOrDefault(op.Sender) + 1) return "Invalid operation nonce.";
         if (op.Type == "issue")
-            return _assets.ContainsKey(op.AssetId) ? "Przedmiot już istnieje." : null;
-        if (!_assets.TryGetValue(op.AssetId, out var asset)) return "Przedmiot nie istnieje.";
-        if (asset.Owner != op.Sender) return "Operację może wykonać tylko właściciel.";
-        if (asset.Status != "ACTIVE") return "Przedmiot został już wykorzystany.";
-        if (op.Type == "transfer" && op.Recipient == op.Sender) return "Odbiorca musi być innym użytkownikiem.";
+            return _assets.ContainsKey(op.AssetId) ? "Asset already exists." : null;
+        if (!_assets.TryGetValue(op.AssetId, out var asset)) return "Asset does not exist.";
+        if (asset.Owner != op.Sender) return "Only the owner can perform this operation.";
+        if (asset.Status != "ACTIVE") return "Asset has already been redeemed.";
+        if (op.Type == "transfer" && op.Recipient == op.Sender) return "The recipient must be a different user.";
         return null;
     }
 
@@ -314,7 +314,7 @@ public sealed class RaftNode : BackgroundService
             if (_role != "leader")
             {
                 if (!forwarded && _leader is not null && !_blocked.Contains(_leader)) forwardTo = _leader;
-                else return new("PENDING", "Brak dostępnego lidera. Spróbuj ponownie.", op.OperationId);
+                else return new("PENDING", "No leader is available. Try again.", op.OperationId);
             }
         }
         finally { _gate.Release(); }
@@ -326,11 +326,11 @@ public sealed class RaftNode : BackgroundService
                 using var response = await _clients.CreateClient("cluster-forward")
                     .PostAsJsonAsync(_peers[forwardTo] + "/cluster/operations?forwarded=1", op, cancellationToken);
                 return await response.Content.ReadFromJsonAsync<OperationResult>(cancellationToken)
-                    ?? new("PENDING", "Nie otrzymano wyniku operacji.", op.OperationId);
+                    ?? new("PENDING", "No operation result was received.", op.OperationId);
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
-                return new("PENDING", "Nie udało się skontaktować z liderem; sprawdź stan przed ponowieniem.", op.OperationId);
+                return new("PENDING", "Could not contact the leader; check the state before retrying.", op.OperationId);
             }
         }
 
@@ -343,7 +343,7 @@ public sealed class RaftNode : BackgroundService
             try
             {
                 if (_role != "leader" || _leaderBarrier == 0 || _state.CommitIndex < _leaderBarrier)
-                    return new("PENDING", "Węzeł nie ma jeszcze potwierdzonego przywództwa.", op.OperationId);
+                    return new("PENDING", "The node has not confirmed leadership yet.", op.OperationId);
                 var error = Validate(op);
                 if (error is not null) return new("REJECTED", error, op.OperationId);
                 _state.Log.Add(new(_state.Term, op));
@@ -364,8 +364,8 @@ public sealed class RaftNode : BackgroundService
                 finally { _gate.Release(); }
             }
             return committed
-                ? new("SUCCESS", "Operacja zatwierdzona przez większość węzłów.", op.OperationId)
-                : new("PENDING", "Brak potwierdzenia większości. Sprawdź stan przed ponowieniem.", op.OperationId);
+                ? new("SUCCESS", "Operation committed by a majority of nodes.", op.OperationId)
+                : new("PENDING", "No majority confirmation. Check the state before retrying.", op.OperationId);
         }
         finally { _proposalGate.Release(); }
     }
@@ -396,9 +396,16 @@ public sealed class RaftNode : BackgroundService
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            return new { id = _id, role = _role, term = _state.Term, leader = _leader,
-                commitIndex = _state.CommitIndex, lastIndex = _state.Log.Count,
-                ready = _role == "leader" && _leaderBarrier > 0 && _state.CommitIndex >= _leaderBarrier };
+            return new
+            {
+                id = _id,
+                role = _role,
+                term = _state.Term,
+                leader = _leader,
+                commitIndex = _state.CommitIndex,
+                lastIndex = _state.Log.Count,
+                ready = _role == "leader" && _leaderBarrier > 0 && _state.CommitIndex >= _leaderBarrier
+            };
         }
         finally { _gate.Release(); }
     }

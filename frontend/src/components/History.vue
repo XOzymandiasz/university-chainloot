@@ -64,14 +64,14 @@ async function connectUpdates() {
   try {
     await connection.start()
   } catch {
-    // Odczyt co pięć sekund pozostaje dostępny, gdy MQTT lub SignalR są niedostępne.
+    // Polling every five seconds remains available if MQTT or SignalR is unavailable.
   }
 }
 
 const labels: Record<HistoryEvent['type'], string> = {
-  issue: 'Wystawienie',
-  transfer: 'Przekazanie',
-  redeem: 'Wykorzystanie',
+  issue: 'Issue',
+  transfer: 'Transfer',
+  redeem: 'Redeem',
 }
 const dailyMax = computed(() =>
   Math.max(1, ...daily.value.map((item) => item.count)),
@@ -118,7 +118,7 @@ async function load(silent = false) {
     })
     if (!response.ok) {
       let detail =
-        'Nie można pobrać historii. Sprawdź, czy backend i Anvil są uruchomione.'
+        'Could not load history. Check that the backend and Anvil are running.'
       if (response.headers.get('content-type')?.includes('application/json')) {
         const problem = await response.json()
         detail = problem.error || detail
@@ -142,10 +142,10 @@ async function load(silent = false) {
     initialized.value = false
     error.value =
       problem instanceof TypeError
-        ? 'Nie można połączyć się z backendem. Uruchom backend i Anvil.'
+        ? 'Cannot connect to the backend. Start the backend and Anvil.'
         : problem instanceof Error
           ? problem.message
-          : 'Nie udało się pobrać historii.'
+          : 'Could not load history.'
   } finally {
     if (controller === request) loading.value = false
   }
@@ -155,7 +155,7 @@ function apply() {
   const from = filterFrom.value ? new Date(filterFrom.value).toISOString() : ''
   const to = filterTo.value ? new Date(filterTo.value).toISOString() : ''
   if (from && to && from > to) {
-    error.value = 'Data początkowa musi być wcześniejsza niż końcowa.'
+    error.value = 'The start date must be before the end date.'
     return
   }
   applied.value = {
@@ -214,68 +214,68 @@ onUnmounted(() => {
 
 <template>
   <section class="history" aria-labelledby="history-title">
-    <h2 id="history-title">Historia przedmiotów</h2>
-    <p>Zdarzenia z kontraktu. Lista aktualizuje się automatycznie.</p>
+    <h2 id="history-title">Asset history</h2>
+    <p>Contract events update automatically.</p>
 
     <form class="history-filters" @submit.prevent="apply">
       <label>
-        Operacja
+        Operation
         <select v-model="filterType">
-          <option value="">Wszystkie</option>
-          <option value="issue">Wystawienie</option>
-          <option value="transfer">Przekazanie</option>
-          <option value="redeem">Wykorzystanie</option>
+          <option value="">All</option>
+          <option value="issue">Issue</option>
+          <option value="transfer">Transfer</option>
+          <option value="redeem">Redeem</option>
         </select>
       </label>
       <label>
-        ID przedmiotu
+        Asset ID
         <input
           v-model.trim="filterToken"
           inputmode="numeric"
-          placeholder="Wszystkie"
+          placeholder="All"
         />
       </label>
       <label>
-        Od
+        From
         <input v-model="filterFrom" type="datetime-local" />
       </label>
       <label>
-        Do
+        To
         <input v-model="filterTo" type="datetime-local" />
       </label>
-      <button type="submit">Filtruj</button>
-      <button type="button" @click="load()">Odśwież</button>
+      <button type="submit">Filter</button>
+      <button type="button" @click="load()">Refresh</button>
     </form>
 
     <div class="history-summary">
       <span
-        >Wszystkie: <strong>{{ total }}</strong></span
+        >All: <strong>{{ total }}</strong></span
       >
       <span
-        >Wystawienia: <strong>{{ counts.issue }}</strong></span
+        >Issues: <strong>{{ counts.issue }}</strong></span
       >
       <span
-        >Przekazania: <strong>{{ counts.transfer }}</strong></span
+        >Transfers: <strong>{{ counts.transfer }}</strong></span
       >
       <span
-        >Wykorzystania: <strong>{{ counts.redeem }}</strong></span
+        >Redemptions: <strong>{{ counts.redeem }}</strong></span
       >
     </div>
 
     <p v-if="!isAddress(contractAddress.trim())" class="history-help">
-      Wpisz powyżej poprawny adres kontraktu, aby zobaczyć historię.
+      Enter a valid contract address above to see its history.
     </p>
     <p v-else-if="error" class="history-error" role="alert">{{ error }}</p>
     <p v-else-if="loading && !initialized" class="history-help">
-      Wczytywanie historii…
+      Loading history…
     </p>
 
     <div
       v-if="daily.length"
       class="history-chart"
-      aria-label="Liczba zdarzeń według dnia"
+      aria-label="Number of events by day"
     >
-      <h3>Zdarzenia według dnia (UTC, do 14 dni z danymi)</h3>
+      <h3>Events by day (UTC, up to 14 days with data)</h3>
       <ul>
         <li v-for="item in daily" :key="item.day">
           <span>{{ item.day }}</span>
@@ -293,17 +293,17 @@ onUnmounted(() => {
       <table class="history-table">
         <thead>
           <tr>
-            <th>Data</th>
-            <th>Operacja</th>
+            <th>Date</th>
+            <th>Operation</th>
             <th>ID</th>
-            <th>Od</th>
-            <th>Odbiorca</th>
-            <th>ID operacji</th>
+            <th>From</th>
+            <th>Recipient</th>
+            <th>Operation ID</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="item in rows" :key="item.txHash + ':' + item.logIndex">
-            <td>{{ new Date(item.timestamp).toLocaleString('pl-PL') }}</td>
+            <td>{{ new Date(item.timestamp).toLocaleString('en-GB') }}</td>
             <td>{{ labels[item.type] }}</td>
             <td>{{ item.tokenId }}</td>
             <td class="address">
@@ -315,7 +315,7 @@ onUnmounted(() => {
             </td>
           </tr>
           <tr v-if="!rows.length && initialized">
-            <td colspan="6">Brak zdarzeń dla wybranych filtrów.</td>
+            <td colspan="6">No events match the selected filters.</td>
           </tr>
         </tbody>
       </table>
@@ -328,11 +328,11 @@ onUnmounted(() => {
           :disabled="page <= 1 || loading"
           @click="changePage(page - 1)"
         >
-          Poprzednia
+          Previous
         </button>
-        <span>Strona {{ page }} z {{ totalPages }}</span>
+        <span>Page {{ page }} of {{ totalPages }}</span>
         <label class="page-size">
-          Wiersze
+          Rows
           <select v-model.number="pageSize" @change="changePage(1)">
             <option :value="10">10</option>
             <option :value="20">20</option>
@@ -345,11 +345,11 @@ onUnmounted(() => {
           :disabled="page >= totalPages || loading"
           @click="changePage(page + 1)"
         >
-          Następna
+          Next
         </button>
       </div>
       <div class="history-export">
-        <span>Eksport:</span>
+        <span>Export:</span>
         <a v-if="initialized" :href="exportUrl('csv')">CSV</a>
         <a v-if="initialized" :href="exportUrl('json')">JSON</a>
       </div>

@@ -52,9 +52,9 @@ const activeIdentity = computed(() =>
   identities.value.find((user) => user.address === selectedIdentity.value),
 )
 const labels: Record<Action, string> = {
-  issue: 'Wystawienie',
-  transfer: 'Przekazanie',
-  redeem: 'Wykorzystanie',
+  issue: 'Issue',
+  transfer: 'Transfer',
+  redeem: 'Redeem',
 }
 
 function nodeUrl(node: NodeId, path: string) {
@@ -66,9 +66,7 @@ async function getJson<T>(node: NodeId, path: string): Promise<T> {
   })
   if (!response.ok)
     throw new Error(
-      response.status === 404
-        ? 'Nie znaleziono przedmiotu.'
-        : 'Węzeł jest niedostępny.',
+      response.status === 404 ? 'Asset not found.' : 'Node is unavailable.',
     )
   return response.json() as Promise<T>
 }
@@ -92,7 +90,7 @@ async function refreshNodes() {
 function canonicalId() {
   const value = assetId.value.trim()
   if (!/^[0-9]{1,39}$/.test(value))
-    throw new Error('ID musi być liczbą całkowitą o maksymalnie 39 cyfrach.')
+    throw new Error('The ID must be an integer with at most 39 digits.')
   return BigInt(value).toString()
 }
 function setMessage(kind: 'success' | 'error' | 'pending', text: string) {
@@ -107,16 +105,11 @@ async function addUser() {
     identities.value = await listIdentities()
     selectedIdentity.value = user.address
     name.value = ''
-    setMessage(
-      'success',
-      'Użytkownik został utworzony lokalnie w tej przeglądarce.',
-    )
+    setMessage('success', 'User created locally in this browser.')
   } catch (error) {
     setMessage(
       'error',
-      error instanceof Error
-        ? error.message
-        : 'Nie udało się zapisać użytkownika.',
+      error instanceof Error ? error.message : 'Could not save the user.',
     )
   } finally {
     busy.value = false
@@ -137,17 +130,13 @@ async function inspect() {
     history.value = events
     setMessage(
       'success',
-      'SUCCESS: odczytano stan z węzła ' +
-        selectedNode.value.toUpperCase() +
-        '.',
+      'SUCCESS: read state from node ' + selectedNode.value.toUpperCase() + '.',
     )
   } catch (error) {
     setMessage(
       'error',
       'FAILED: ' +
-        (error instanceof Error
-          ? error.message
-          : 'Nie udało się odczytać stanu.'),
+        (error instanceof Error ? error.message : 'Could not read the state.'),
     )
   } finally {
     busy.value = false
@@ -165,7 +154,7 @@ async function send(operation: SignedOperation) {
   )
   const result = (await response.json()) as OperationResult
   if (!['SUCCESS', 'REJECTED', 'PENDING'].includes(result.status))
-    throw new Error('Nieznany wynik operacji.')
+    throw new Error('Unknown operation result.')
   setMessage(
     result.status === 'SUCCESS'
       ? 'success'
@@ -198,16 +187,17 @@ async function operate(type: Action) {
   try {
     const id = canonicalId()
     const user = activeIdentity.value
-    if (!user) throw new Error('Wybierz lokalnego użytkownika.')
+    if (!user) throw new Error('Select a local user.')
     const to = type === 'redeem' ? '' : recipient.value.trim().toLowerCase()
     if (type !== 'redeem' && !/^0x[0-9a-f]{40}$/.test(to))
-      throw new Error('Wpisz poprawny adres odbiorcy.')
+      throw new Error('Enter a valid recipient address.')
     await refreshNodes()
     const leader = nodes.find(
       (node) =>
         statuses.value[node]?.role === 'leader' && statuses.value[node]?.ready,
     )
-    if (!leader) throw new Error('Brak dostępnego lidera. Sprawdź stan węzłów.')
+    if (!leader)
+      throw new Error('No leader is available. Check the node status.')
     const { nonce } = await getJson<{ nonce: number }>(
       leader,
       '/cluster/nonces/' + user.address,
@@ -220,7 +210,7 @@ async function operate(type: Action) {
     if (sent)
       setMessage(
         'pending',
-        'PENDING: brak odpowiedzi. Sprawdź stan przed ponowieniem operacji.',
+        'PENDING: no response. Check the state before retrying.',
       )
     else
       setMessage(
@@ -228,7 +218,7 @@ async function operate(type: Action) {
         'FAILED: ' +
           (error instanceof Error
             ? error.message
-            : 'Nie udało się wykonać operacji.'),
+            : 'Could not complete the operation.'),
       )
   } finally {
     busy.value = false
@@ -243,7 +233,7 @@ async function replay() {
   } catch {
     setMessage(
       'pending',
-      'PENDING: nie otrzymano wyniku. Sprawdź stan przed ponowieniem.',
+      'PENDING: no result received. Check the state before retrying.',
     )
   } finally {
     busy.value = false
@@ -254,10 +244,7 @@ onMounted(async () => {
     identities.value = await listIdentities()
     selectedIdentity.value = identities.value[0]?.address || ''
   } catch {
-    setMessage(
-      'error',
-      'Nie można odczytać lokalnych użytkowników przeglądarki.',
-    )
+    setMessage('error', 'Could not read local browser users.')
   }
   await refreshNodes()
   if (!disposed)
@@ -275,29 +262,26 @@ onUnmounted(() => {
   <div class="shell distributed">
     <header class="topbar">
       <a class="brand" href="/cluster.html">ChainLoot</a>
-      <span class="local-label">Sieć lokalna · 3 węzły</span>
+      <span class="local-label">Local network · 3 nodes</span>
     </header>
 
     <main>
       <div class="distributed-heading">
-        <h1>System rozproszony</h1>
+        <h1>Distributed system</h1>
         <p>
-          Operacje są podpisywane na tym komputerze i zatwierdzane przez
-          większość węzłów.
+          Operations are signed on this computer and confirmed by a majority of
+          nodes.
         </p>
       </div>
 
       <section class="workspace node-section" aria-labelledby="nodes-heading">
         <div class="section-title">
           <div>
-            <h2 id="nodes-heading">Węzły</h2>
-            <p>
-              Wybierz węzeł, przez który chcesz odczytać stan lub wysłać
-              operację.
-            </p>
+            <h2 id="nodes-heading">Nodes</h2>
+            <p>Choose a node to read the state or submit an operation.</p>
           </div>
           <button type="button" class="secondary-button" @click="refreshNodes">
-            Odśwież
+            Refresh
           </button>
         </div>
         <div class="node-list">
@@ -314,18 +298,18 @@ onUnmounted(() => {
               :value="node"
             />
             <span>
-              <strong>Węzeł {{ node.toUpperCase() }}</strong>
+              <strong>Node {{ node.toUpperCase() }}</strong>
               <small v-if="statuses[node]">
                 {{
                   statuses[node]?.role === 'leader'
-                    ? 'Lider'
+                    ? 'Leader'
                     : statuses[node]?.role === 'candidate'
-                      ? 'Wybór lidera'
-                      : 'Węzeł zapasowy'
+                      ? 'Leader election'
+                      : 'Follower'
                 }}
-                · zatwierdzono: {{ statuses[node]?.commitIndex }}
+                · committed: {{ statuses[node]?.commitIndex }}
               </small>
-              <small v-else>Niedostępny</small>
+              <small v-else>Unavailable</small>
             </span>
           </label>
         </div>
@@ -337,34 +321,34 @@ onUnmounted(() => {
       >
         <div class="section-title">
           <div>
-            <h2 id="users-heading">Użytkownicy lokalni</h2>
+            <h2 id="users-heading">Local users</h2>
             <p>
-              Klucz prywatny powstaje i pozostaje w tej przeglądarce. Nie jest
-              wysyłany do węzłów.
+              The private key is created and kept in this browser. It is not
+              sent to the nodes.
             </p>
           </div>
         </div>
         <form class="identity-form" @submit.prevent="addUser">
-          <label for="user-name">Nazwa użytkownika</label>
+          <label for="user-name">Username</label>
           <div>
             <input
               id="user-name"
               v-model.trim="name"
               maxlength="40"
-              placeholder="np. Alice"
+              placeholder="e.g. Alice"
             />
             <button class="connect-button" type="submit" :disabled="busy">
-              Dodaj lokalnie
+              Add locally
             </button>
           </div>
         </form>
         <p class="identity-note">
-          Każdy użytkownik powinien używać osobnego profilu przeglądarki.
-          Wyczyszczenie danych przeglądarki usuwa lokalne klucze.
+          Each user should use a separate browser profile. Clearing browser data
+          removes local keys.
         </p>
-        <label for="active-user">Aktywny użytkownik</label>
+        <label for="active-user">Active user</label>
         <select id="active-user" v-model="selectedIdentity" :disabled="busy">
-          <option value="">Wybierz użytkownika</option>
+          <option value="">Select a user</option>
           <option
             v-for="user in identities"
             :key="user.address"
@@ -374,7 +358,7 @@ onUnmounted(() => {
           </option>
         </select>
         <p v-if="activeIdentity" class="current-address">
-          Adres: <code>{{ activeIdentity.address }}</code>
+          Address: <code>{{ activeIdentity.address }}</code>
         </p>
       </section>
 
@@ -384,27 +368,25 @@ onUnmounted(() => {
       >
         <div class="section-title">
           <div>
-            <h2 id="asset-heading">Przedmiot</h2>
-            <p>Odczytaj stan albo podpisz i wyślij operację.</p>
+            <h2 id="asset-heading">Asset</h2>
+            <p>Read the state or sign and submit an operation.</p>
           </div>
         </div>
         <div class="distributed-grid">
           <div class="form-panel">
             <div class="field">
-              <label for="asset-id">ID przedmiotu</label>
+              <label for="asset-id">Asset ID</label>
               <input
                 id="asset-id"
                 v-model.trim="assetId"
                 inputmode="numeric"
-                placeholder="np. 1"
+                placeholder="e.g. 1"
               />
             </div>
             <div class="field">
               <label for="cluster-recipient"
-                >Adres odbiorcy
-                <span class="optional"
-                  >do wystawienia i przekazania</span
-                ></label
+                >Recipient address
+                <span class="optional">for issue and transfer</span></label
               >
               <input
                 id="cluster-recipient"
@@ -418,23 +400,23 @@ onUnmounted(() => {
                 type="button"
                 @click="recipient = activeIdentity.address"
               >
-                Wstaw adres aktywnego użytkownika
+                Use active user address
               </button>
             </div>
           </div>
           <div class="action-panel">
-            <h3>Operacje</h3>
+            <h3>Operations</h3>
             <button type="button" :disabled="busy" @click="inspect">
-              Sprawdź przedmiot
+              Inspect asset
             </button>
             <button type="button" :disabled="busy" @click="operate('issue')">
-              Wystaw przedmiot
+              Issue asset
             </button>
             <button type="button" :disabled="busy" @click="operate('transfer')">
-              Przekaż przedmiot
+              Transfer asset
             </button>
             <button type="button" :disabled="busy" @click="operate('redeem')">
-              Wykorzystaj przedmiot
+              Redeem asset
             </button>
             <button
               v-if="lastSigned"
@@ -442,7 +424,7 @@ onUnmounted(() => {
               :disabled="busy"
               @click="replay"
             >
-              Wyślij ostatnią operację ponownie
+              Resend last operation
             </button>
           </div>
         </div>
@@ -456,28 +438,28 @@ onUnmounted(() => {
         </div>
         <div v-if="asset" class="result">
           <div>
-            <span>Przedmiot</span><strong>#{{ asset.id }}</strong>
+            <span>Asset</span><strong>#{{ asset.id }}</strong>
           </div>
           <div>
             <span>Status</span><strong>{{ asset.status }}</strong>
           </div>
           <div class="owner">
-            <span>Właściciel</span><strong>{{ asset.owner }}</strong>
+            <span>Owner</span><strong>{{ asset.owner }}</strong>
           </div>
         </div>
       </section>
 
       <section v-if="asset" class="history" aria-labelledby="cluster-history">
-        <h2 id="cluster-history">Historia przedmiotu #{{ asset.id }}</h2>
-        <p>Kolejność zatwierdzonych operacji według wybranego węzła.</p>
+        <h2 id="cluster-history">Asset history #{{ asset.id }}</h2>
+        <p>Committed operations in order, according to the selected node.</p>
         <div class="history-table-wrap">
           <table class="history-table">
             <thead>
               <tr>
-                <th>Operacja</th>
-                <th>Nadawca</th>
-                <th>Odbiorca</th>
-                <th>ID operacji</th>
+                <th>Operation</th>
+                <th>Sender</th>
+                <th>Recipient</th>
+                <th>Operation ID</th>
               </tr>
             </thead>
             <tbody>
@@ -492,7 +474,7 @@ onUnmounted(() => {
         </div>
       </section>
       <p class="footnote">
-        Stan odczytujesz z wybranego węzła; po awarii możesz wybrać inny.
+        State is read from the selected node; choose another if it fails.
       </p>
     </main>
   </div>

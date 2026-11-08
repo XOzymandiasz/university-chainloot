@@ -19,7 +19,7 @@ async function unusedPort() {
 async function waitForRpc(url, anvil) {
   for (let attempt = 0; attempt < 100; attempt++) {
     if (anvil.exitCode !== null)
-      throw new Error('Anvil zakończył pracę przed rozpoczęciem testu.')
+      throw new Error('Anvil exited before the test started.')
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -38,7 +38,7 @@ async function waitForRpc(url, anvil) {
     }
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
-  throw new Error('Nie udało się uruchomić osobnego Anvil do testów.')
+  throw new Error('Could not start a separate Anvil instance for tests.')
 }
 
 export async function withIsolatedChain(run) {

@@ -90,7 +90,7 @@ async function assetEverywhere(bases, id, owner, status = 'ACTIVE') {
     return states.every(
       (item) => item.owner === owner && item.status === status,
     )
-  }, 'Węzły nie uzgodniły stanu ' + id)
+  }, 'Nodes did not agree on state ' + id)
 }
 async function readyLeader(bases) {
   return waitFor(async () => {
@@ -98,10 +98,10 @@ async function readyLeader(bases) {
       bases.map((base) => get(base, '/cluster/status').catch(() => null)),
     )
     return states.find((state) => state?.role === 'leader' && state.ready)
-  }, 'Brak gotowego lidera')
+  }, 'No ready leader')
 }
 
-test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
+test('T1–T14: local distributed system', { timeout: 180000 }, async () => {
   const ports = await Promise.all([
     freePort(),
     freePort(),
@@ -123,7 +123,7 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
     assert.equal(
       existing.stdout.trim(),
       '',
-      'Kolizja identyfikatora środowiska testowego.',
+      'Test environment identifier collision.',
     )
     created = true
     await compose(env, 'up', '-d', '--no-build', '--pull', 'never')
@@ -134,7 +134,7 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
     const styles = [...html.matchAll(/href="([^"]+[.]css)"/g)].map(
       (match) => match[1],
     )
-    assert.ok(styles.length > 0, 'Brakuje arkusza stylów interfejsu.')
+    assert.ok(styles.length > 0, 'UI stylesheet is missing.')
     for (const path of styles) {
       const css = await fetch(uiBase + path)
       assert.equal(css.status, 200)
@@ -148,11 +148,14 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
       )
     }
     for (const node of ['a', 'b', 'c']) {
-      const blocked = await fetch(uiBase + '/nodes/' + node + '/cluster/internal/vote', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: '{}',
-      })
+      const blocked = await fetch(
+        uiBase + '/nodes/' + node + '/cluster/internal/vote',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: '{}',
+        },
+      )
       assert.equal(blocked.status, 403)
     }
     const blockedDirect = await fetch(bases[0] + '/cluster/internal/append', {
@@ -226,7 +229,7 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
       'REJECTED',
     )
     await assetEverywhere(bases, '1001', bob.address, 'REDEEMED')
-    console.log('T1–T6: tworzenie, odczyt, transfer, autoryzacja i REDEEM')
+    console.log('T1–T6: issue, lookup, transfer, authorization and REDEEM')
 
     // T7–T8: only the client holds each non-extractable private key.
     const issueSigned = await operation(
@@ -274,7 +277,7 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
       'REJECTED',
     )
     await assetEverywhere(bases, '1002', bob.address)
-    console.log('T7–T8: podpis użytkownika wymagany; ponowne użycie odrzucone')
+    console.log('T7–T8: user signature required; replay rejected')
 
     // T9–T10: complete ordered history and independent state read from another node.
     const issueHistory = await operation(
@@ -315,7 +318,7 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
     assert.equal(independent.owner, charlie.address)
     assert.equal(independent.status, 'REDEEMED')
     console.log(
-      'T9–T10: chronologiczna historia i niezależny odczyt z drugiego węzła',
+      'T9–T10: chronological history and independent read from another node',
     )
 
     // T11–T12: independent durable nodes, failure and automatic catch-up.
@@ -344,7 +347,7 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
       'SUCCESS',
     )
     await assetEverywhere(bases, '1004', bob.address)
-    console.log('T11: trzy węzły mają ten sam stan')
+    console.log('T11: three nodes share the same state')
 
     await compose(env, 'stop', '-t', '2', 'node-a')
     await readyLeader([bases[1], bases[2]])
@@ -364,7 +367,7 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
     await compose(env, 'start', 'node-a')
     await assetEverywhere(bases, '1004', charlie.address)
     console.log(
-      'T12: operacja przy awarii i automatyczna synchronizacja po powrocie',
+      'T12: operation during failure and automatic synchronization after recovery',
     )
 
     // T13: concurrent conflicting signatures with the same nonce.
@@ -405,9 +408,7 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
     await assetEverywhere(bases, '1005', winner)
     const conflictHistory = await get(bases[0], '/cluster/history/1005')
     assert.equal(conflictHistory.length, 2)
-    console.log(
-      'T13: dokładnie jeden z dwóch konfliktujących transferów zatwierdzono',
-    )
+    console.log('T13: exactly one of two conflicting transfers was committed')
 
     // T14 uses another fresh asset so Alice owns the starting state.
     const issuePartition = await operation(
@@ -460,7 +461,7 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
     await assetEverywhere(bases, '1006', charlie.address)
     const partitionHistory = await get(bases[0], '/cluster/history/1006')
     assert.equal(partitionHistory.length, 2)
-    console.log('T14: po przywróceniu komunikacji węzły wskazują jeden stan')
+    console.log('T14: nodes converge after communication is restored')
   } catch (error) {
     const diagnostics = await Promise.all(
       bases.map(async (base) => {
@@ -469,7 +470,7 @@ test('T1–T14: lokalny system rozproszony', { timeout: 180000 }, async () => {
         return { base, status, asset }
       }),
     )
-    console.error('Stan testowych węzłów:', JSON.stringify(diagnostics))
+    console.error('Test node states:', JSON.stringify(diagnostics))
     throw error
   } finally {
     if (created) await compose(env, 'down', '--volumes', '--remove-orphans')

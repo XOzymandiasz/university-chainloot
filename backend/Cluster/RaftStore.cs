@@ -22,7 +22,7 @@ public sealed class RaftStore(NpgsqlDataSource source)
         await using var read = source.CreateCommand("SELECT data::text FROM raft_state WHERE id = 1");
         var value = (string)(await read.ExecuteScalarAsync(cancellationToken))!;
         return JsonSerializer.Deserialize<PersistentState>(value, Json)
-            ?? throw new InvalidOperationException("Nie można odczytać stanu węzła.");
+            ?? throw new InvalidOperationException("Could not read node state.");
     }
 
     public async Task SaveAsync(PersistentState state, CancellationToken cancellationToken)

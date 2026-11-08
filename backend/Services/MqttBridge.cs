@@ -29,7 +29,7 @@ public sealed class MqttBridge(IHubContext<HistoryHub> hub, IConfiguration confi
                 {
                     await _client.ConnectAsync(options, stoppingToken);
                     await _client.SubscribeAsync(Topic, MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce, stoppingToken);
-                    logger.LogInformation("Połączono z MQTT.");
+                    logger.LogInformation("Connected to MQTT.");
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
@@ -48,7 +48,7 @@ public sealed class MqttBridge(IHubContext<HistoryHub> hub, IConfiguration confi
             await _client.PublishAsync(message, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-        catch (Exception ex) { logger.LogWarning("Nie udało się wysłać powiadomienia MQTT: {Error}", ex.Message); }
+        catch (Exception ex) { logger.LogWarning("Could not send MQTT notification: {Error}", ex.Message); }
     }
 
     public override void Dispose()

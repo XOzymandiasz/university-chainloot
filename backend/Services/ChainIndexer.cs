@@ -23,7 +23,7 @@ public sealed class ChainIndexer(HistoryStore store, MqttBridge mqtt, IHttpClien
         response.EnsureSuccessStatusCode();
         using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
         if (document.RootElement.TryGetProperty("error", out var error))
-            throw new InvalidOperationException("Błąd RPC: " + error.ToString());
+            throw new InvalidOperationException("RPC error: " + error.ToString());
         return document.RootElement.GetProperty("result").Clone();
     }
 
@@ -49,9 +49,9 @@ public sealed class ChainIndexer(HistoryStore store, MqttBridge mqtt, IHttpClien
         try
         {
             var chain = await RpcAsync("eth_chainId", [], cancellationToken);
-            if (HexLong(chain.GetString()!) != 31337) throw new InvalidOperationException("Wymagana lokalna sieć Anvil (chain ID 31337).");
+            if (HexLong(chain.GetString()!) != 31337) throw new InvalidOperationException("The local Anvil network is required (chain ID 31337).");
             var code = await RpcAsync("eth_getCode", [contract, "latest"], cancellationToken);
-            if (code.GetString() is null or "0x") throw new InvalidOperationException("Brak kontraktu pod podanym adresem.");
+            if (code.GetString() is null or "0x") throw new InvalidOperationException("No contract exists at the given address.");
             _contracts.TryAdd(contract, 0);
             var latestValue = await RpcAsync("eth_blockNumber", [], cancellationToken);
             var latest = HexLong(latestValue.GetString()!);
@@ -79,7 +79,7 @@ public sealed class ChainIndexer(HistoryStore store, MqttBridge mqtt, IHttpClien
                 {
                     var number = HexLong(log.GetProperty("blockNumber").GetString()!);
                     if (!blockTimes.ContainsKey(number))
-                        blockTimes[number] = await BlockAsync(number, cancellationToken) ?? throw new InvalidOperationException("Nie znaleziono bloku.");
+                        blockTimes[number] = await BlockAsync(number, cancellationToken) ?? throw new InvalidOperationException("Block not found.");
                     var topics = log.GetProperty("topics");
                     var signature = topics[0].GetString()!.ToLowerInvariant();
                     var isTransfer = signature == Transfer;
@@ -92,7 +92,7 @@ public sealed class ChainIndexer(HistoryStore store, MqttBridge mqtt, IHttpClien
                         type, tokenId, sender, recipient));
                 }
                 var endBlock = blockTimes.TryGetValue(end, out var existing)
-                    ? existing : await BlockAsync(end, cancellationToken) ?? throw new InvalidOperationException("Nie znaleziono bloku.");
+                    ? existing : await BlockAsync(end, cancellationToken) ?? throw new InvalidOperationException("Block not found.");
                 var inserted = await store.SaveBatchAsync(contract, batch, new(end, endBlock.Hash), cancellationToken);
                 if (inserted > 0) await mqtt.PublishAsync(contract, cancellationToken);
                 start = end + 1;

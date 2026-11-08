@@ -38,7 +38,7 @@ export async function generateIdentityKeys(
 ): Promise<LocalIdentity> {
   const cleanName = name.trim()
   if (!cleanName || cleanName.length > 40)
-    throw new Error('Wpisz nazwę użytkownika (maksymalnie 40 znaków).')
+    throw new Error('Enter a username (up to 40 characters).')
   const keys = await crypto.subtle.generateKey(
     { name: 'ECDSA', namedCurve: 'P-256' },
     false,
@@ -72,9 +72,7 @@ export async function createIdentity(name: string): Promise<LocalIdentity> {
     })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'ConstraintError') {
-      throw new Error(
-        'Użytkownik o tej nazwie już istnieje w tej przeglądarce.',
-      )
+      throw new Error('A user with this name already exists in this browser.')
     }
     throw error
   } finally {

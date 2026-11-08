@@ -45,7 +45,7 @@ if (!clusterEnabled)
         var format = context.Request.Query["format"].ToString();
         return format is "csv" or "json"
             ? await GetEvents(context, store, indexer, logger, format)
-            : Results.BadRequest(new { error = "Wybierz format csv lub json." });
+            : Results.BadRequest(new { error = "Choose csv or json format." });
     });
 }
 
@@ -55,7 +55,7 @@ if (clusterEnabled)
     app.MapGet("/cluster/assets/{id}", async (string id, RaftNode node, CancellationToken ct) =>
     {
         var asset = await node.AssetAsync(id, ct);
-        return asset is null ? Results.NotFound(new { error = "Przedmiot nie istnieje." }) : Results.Ok(asset);
+        return asset is null ? Results.NotFound(new { error = "Asset does not exist." }) : Results.Ok(asset);
     });
     app.MapGet("/cluster/history/{id}", async (string id, RaftNode node, CancellationToken ct) =>
         Results.Ok(await node.HistoryAsync(id, ct)));
@@ -85,32 +85,32 @@ static bool TryFilters(IQueryCollection query, out EventFilters? filters, out st
     var fromText = query["from"].ToString();
     var toText = query["to"].ToString();
     error = "";
-    if (!Regex.IsMatch(contract, "^0x[0-9a-f]{40}$")) error = "Podaj poprawny adres kontraktu.";
-    else if (type.Length > 0 && type is not ("issue" or "transfer" or "redeem")) error = "Niepoprawny typ zdarzenia.";
+    if (!Regex.IsMatch(contract, "^0x[0-9a-f]{40}$")) error = "Enter a valid contract address.";
+    else if (type.Length > 0 && type is not ("issue" or "transfer" or "redeem")) error = "Invalid event type.";
     else if (token.Length > 0 && (!Regex.IsMatch(token, "^[0-9]+$") || !BigInteger.TryParse(token, out _)))
-        error = "ID przedmiotu musi być liczbą całkowitą.";
+        error = "Asset ID must be an integer.";
     if (error.Length > 0) return false;
     if (token.Length > 0) token = BigInteger.Parse(token, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture);
     DateTimeOffset? from = null, to = null;
     if (fromText.Length > 0)
     {
         if (!DateTimeOffset.TryParse(fromText, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed))
-            error = "Niepoprawna data początkowa.";
+            error = "Invalid start date.";
         else from = parsed.ToUniversalTime();
     }
     if (toText.Length > 0)
     {
         if (!DateTimeOffset.TryParse(toText, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed))
-            error = "Niepoprawna data końcowa.";
+            error = "Invalid end date.";
         else to = parsed.ToUniversalTime();
     }
-    if (from.HasValue && to.HasValue && from > to) error = "Data początkowa musi być wcześniejsza niż końcowa.";
+    if (from.HasValue && to.HasValue && from > to) error = "The start date must be before the end date.";
     var pageText = query["page"].ToString();
     var pageSizeText = query["pageSize"].ToString();
     if (!int.TryParse(pageText.Length == 0 ? "1" : pageText, out var page) || page < 1 ||
         !int.TryParse(pageSizeText.Length == 0 ? "20" : pageSizeText, out var pageSize) || pageSize < 1 || pageSize > 100)
     {
-        error = "Niepoprawny numer strony lub liczba wierszy.";
+        error = "Invalid page number or page size.";
         return false;
     }
     if (error.Length > 0) return false;
@@ -147,8 +147,8 @@ static async Task<IResult> GetEvents(HttpContext context, HistoryStore store, Ch
     catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { throw; }
     catch (Exception ex)
     {
-        logger.LogWarning("Błąd odczytu historii: {Error}", ex.Message);
-        return Results.Json(new { error = "Nie można odczytać historii. Sprawdź Anvil i adres kontraktu." }, statusCode: 503);
+        logger.LogWarning("Error reading history: {Error}", ex.Message);
+        return Results.Json(new { error = "Could not read history. Check Anvil and the contract address." }, statusCode: 503);
     }
 }
 

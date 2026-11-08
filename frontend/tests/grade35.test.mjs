@@ -4,7 +4,7 @@ import { Transaction, Wallet, parseEther, toQuantity } from 'ethers'
 import { withIsolatedChain } from './local-chain.mjs'
 
 test(
-  'T7–T8: niezależne klucze, podpis i ponowne wysłanie tej samej transakcji',
+  'T7–T8: independent keys, signature and replay of the same transaction',
   { timeout: 60000 },
   async () => {
     await withIsolatedChain(async ({ provider, items }) => {
@@ -53,7 +53,7 @@ test(
       assert.equal(receipt.status, 1)
       assert.equal(await items.ownerOf(2n), bob.address)
       console.log(
-        'T7: REJECTED bez podpisu i z obcym podpisem; SUCCESS z podpisem Alice',
+        'T7: REJECTED without a signature and with another signature; SUCCESS with Alice signature',
       )
 
       await assert.rejects(() => provider.broadcastTransaction(signed))
@@ -65,7 +65,7 @@ test(
       )
       assert.equal(transfers.length, 2)
       console.log(
-        'T8: REJECTED — identyczna podpisana transakcja nie wykonała się ponownie',
+        'T8: REJECTED — identical signed transaction was not executed again',
       )
     })
   },

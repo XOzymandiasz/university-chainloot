@@ -70,7 +70,7 @@ async function connect() {
     const eth = wallet()
     if (!eth)
       throw new Error(
-        'Nie znaleziono portfela. Zainstaluj MetaMask lub inny portfel Ethereum.',
+        'No wallet found. Install MetaMask or another Ethereum wallet.',
       )
     const accounts = (await eth.request({
       method: 'eth_requestAccounts',
@@ -95,24 +95,24 @@ async function connectLocal() {
     const chain = (await provider.send('eth_chainId', [])) as string
     if (BigInt(chain) !== 31337n)
       throw new Error(
-        'Pod adresem 127.0.0.1:8545 musi działać Anvil z chain ID 31337.',
+        'Anvil must be running at 127.0.0.1:8545 with chain ID 31337.',
       )
     const accounts = (await provider.send('eth_accounts', [])) as string[]
     if (!accounts.length)
-      throw new Error('Anvil nie udostępnia kont testowych.')
+      throw new Error('Anvil does not provide any test accounts.')
     mode.value = 'local'
     localAccounts.value = accounts
     account.value = accounts[0]!
     chainId.value = expectedChainId
     result.value = null
-    message.value = 'Połączono z lokalnym Anvil. Wybierz konto testowe poniżej.'
+    message.value = 'Connected to local Anvil. Select a test account below.'
   } catch (e) {
     const problem = e as Error
     error.value =
-      problem.message.startsWith('Pod adresem') ||
-      problem.message.startsWith('Anvil nie')
+      problem.message.startsWith('Anvil must') ||
+      problem.message.startsWith('Anvil does not')
         ? problem.message
-        : 'Nie można połączyć się z Anvil. Uruchom polecenie anvil w terminalu i pozostaw go otwartym.'
+        : 'Cannot connect to Anvil. Run anvil in a terminal and leave it open.'
   } finally {
     provider.destroy()
     busy.value = false
@@ -129,7 +129,7 @@ async function connectSignedLocal() {
   try {
     const chain = (await provider.send('eth_chainId', [])) as string
     if (BigInt(chain) !== 31337n)
-      throw new Error('Wymagana jest lokalna sieć Anvil (chain ID 31337).')
+      throw new Error('The local Anvil network is required (chain ID 31337).')
     if (signedAccounts.value.length === 0) {
       const users = Array.from({ length: 3 }, () => EthersWallet.createRandom())
       const funder = await provider.getSigner(0)
@@ -147,7 +147,7 @@ async function connectSignedLocal() {
     account.value = localAccounts.value[0]!
     chainId.value = expectedChainId
     result.value = null
-    message.value = 'Konta są gotowe. Klucze są tylko w pamięci tej karty.'
+    message.value = 'Accounts are ready. Keys remain in memory in this tab.'
   } catch (e) {
     showError(e)
   } finally {
@@ -164,31 +164,30 @@ function showError(e: unknown) {
   }
   error.value =
     problem.code === 4001 || problem.code === 'ACTION_REJECTED'
-      ? 'Operacja została odrzucona w portfelu.'
+      ? 'The operation was rejected in the wallet.'
       : problem.reason ||
         problem.shortMessage ||
         problem.message ||
-        'Nie udało się wykonać operacji.'
+        'Could not complete the operation.'
 }
 function idValue(): bigint {
   if (!/^\d+$/.test(tokenId.value.trim()))
-    throw new Error('Podaj identyfikator jako nieujemną liczbę całkowitą.')
+    throw new Error('Enter the ID as a non-negative integer.')
   const id = BigInt(tokenId.value.trim())
-  if (id > (1n << 128n) - 1n)
-    throw new Error('Identyfikator musi mieścić się w zakresie uint128.')
+  if (id > (1n << 128n) - 1n) throw new Error('The ID must fit within uint128.')
   return id
 }
 function recipientValue(): string {
   const value = recipient.value.trim()
   if (!isAddress(value) || getAddress(value) === ZeroAddress)
-    throw new Error('Podaj poprawny, niezerowy adres odbiorcy.')
+    throw new Error('Enter a valid, non-zero recipient address.')
   return getAddress(value)
 }
 async function getContract(write = false): Promise<Contract> {
   if (!account.value)
-    throw new Error('Najpierw połącz konto lokalne lub portfel.')
+    throw new Error('Connect a local account or wallet first.')
   if (!isAddress(contractAddress.value.trim()))
-    throw new Error('Podaj poprawny adres wdrożonego kontraktu.')
+    throw new Error('Enter a valid deployed contract address.')
   const address = getAddress(contractAddress.value.trim())
   if (mode.value === 'local' || mode.value === 'signed') {
     const provider = new JsonRpcProvider('http://127.0.0.1:8545', undefined, {
@@ -197,31 +196,37 @@ async function getContract(write = false): Promise<Contract> {
     const currentChain = (await provider.send('eth_chainId', [])) as string
     if (BigInt(currentChain) !== 31337n)
       throw new Error(
-        'Pod adresem 127.0.0.1:8545 musi działać Anvil z chain ID 31337.',
+        'Anvil must be running at 127.0.0.1:8545 with chain ID 31337.',
       )
     if ((await provider.getCode(address)) === '0x')
-      throw new Error('Pod tym adresem w wybranej sieci nie ma kontraktu.')
+      throw new Error(
+        'No contract exists at this address on the selected network.',
+      )
     if (!write) return new Contract(address, abi, provider)
     if (mode.value === 'signed') {
       const signer = signedAccounts.value.find(
         (user) => user.address === account.value,
       )
       if (!signer)
-        throw new Error('Nie znaleziono klucza aktywnego konta w tej karcie.')
+        throw new Error('The active account key was not found in this tab.')
       return new Contract(address, abi, signer.connect(provider))
     }
     return new Contract(address, abi, await provider.getSigner(account.value))
   }
   const eth = wallet()
-  if (!eth) throw new Error('Najpierw połącz portfel.')
+  if (!eth) throw new Error('Connect a wallet first.')
   const currentChain = (await eth.request({ method: 'eth_chainId' })) as string
   if (currentChain.toLowerCase() !== chainId.value.toLowerCase())
     handleChain(currentChain)
   if (currentChain.toLowerCase() !== expectedChainId)
-    throw new Error('Przełącz portfel na lokalną sieć Anvil (chain ID 31337).')
+    throw new Error(
+      'Switch your wallet to the local Anvil network (chain ID 31337).',
+    )
   const provider = new BrowserProvider(eth)
   if ((await provider.getCode(address)) === '0x')
-    throw new Error('Pod tym adresem w wybranej sieci nie ma kontraktu.')
+    throw new Error(
+      'No contract exists at this address on the selected network.',
+    )
   return new Contract(
     address,
     abi,
@@ -236,7 +241,7 @@ async function inspect(contract: Contract, id: bigint) {
   result.value = {
     id: id.toString(),
     owner,
-    status: Number(status) === 0 ? 'Aktywny' : 'Wykorzystany',
+    status: Number(status) === 0 ? 'Active' : 'Redeemed',
   }
 }
 async function run(action: 'inspect' | 'issue' | 'transfer' | 'redeem') {
@@ -253,22 +258,22 @@ async function run(action: 'inspect' | 'issue' | 'transfer' | 'redeem') {
     if (action === 'inspect') {
       await inspect(contract, id)
       operationStatus.value = 'success'
-      message.value = 'Dane przedmiotu zostały odczytane z blockchaina.'
+      message.value = 'Asset details were read from the blockchain.'
     } else {
       message.value =
         mode.value === 'local' || mode.value === 'signed'
-          ? 'Wysyłanie transakcji z konta testowego…'
-          : 'Potwierdź transakcję w portfelu.'
+          ? 'Sending the transaction from the test account…'
+          : 'Confirm the transaction in your wallet.'
       const tx =
         action === 'issue'
           ? await contract.issue!(destination, id)
           : action === 'transfer'
             ? await contract.transferFrom!(account.value, destination, id)
             : await contract.redeem!(id)
-      message.value = 'Transakcja wysłana. Oczekiwanie na potwierdzenie…'
+      message.value = 'Transaction sent. Waiting for confirmation…'
       await tx.wait()
       operationStatus.value = 'success'
-      message.value = `Transakcja potwierdzona: ${tx.hash}`
+      message.value = `Transaction confirmed: ${tx.hash}`
       try {
         await inspect(contract, id)
       } catch {
@@ -311,10 +316,10 @@ onUnmounted(() => {
             :class="{ online: account && correctNetwork }"
             aria-hidden="true"
           ></i>
-          {{ account && correctNetwork ? 'Anvil: połączono' : 'Nie połączono' }}
+          {{ account && correctNetwork ? 'Anvil: connected' : 'Not connected' }}
         </span>
         <button class="wallet" type="button" :disabled="busy" @click="connect">
-          {{ account && mode === 'wallet' ? shortAccount : 'Połącz portfel' }}
+          {{ account && mode === 'wallet' ? shortAccount : 'Connect wallet' }}
         </button>
       </div>
     </header>
@@ -322,18 +327,18 @@ onUnmounted(() => {
     <main id="top">
       <div class="page-heading">
         <div>
-          <h1>Przedmioty</h1>
-          <p>Wystawiaj, sprawdzaj i przekazuj przedmioty w sieci lokalnej.</p>
+          <h1>Assets</h1>
+          <p>Issue, inspect and transfer assets on the local network.</p>
         </div>
         <details class="help">
-          <summary>Jak korzystać?</summary>
+          <summary>How to use</summary>
           <ol>
-            <li>Uruchom Anvil i wdróż kontrakt.</li>
-            <li>Połącz konto testowe lub portfel.</li>
-            <li>Wpisz adres kontraktu i identyfikator przedmiotu.</li>
+            <li>Start Anvil and deploy the contract.</li>
+            <li>Connect a test account or wallet.</li>
+            <li>Enter the contract address and asset ID.</li>
             <li>
-              Wybierz operację. Adres odbiorcy jest potrzebny do wystawienia i
-              przekazania.
+              Choose an operation. A recipient address is required to issue or
+              transfer an asset.
             </li>
           </ol>
         </details>
@@ -344,26 +349,24 @@ onUnmounted(() => {
         class="notice warning"
         role="alert"
       >
-        Przełącz portfel na lokalną sieć Anvil (chain ID 31337).
+        Switch your wallet to the local Anvil network (chain ID 31337).
       </div>
 
       <section class="workspace" aria-labelledby="workspace-title">
         <div class="connection">
           <div>
-            <h2>Połączenie</h2>
+            <h2>Connection</h2>
             <p v-if="account && mode === 'local'">
-              Korzystasz z testowego konta Anvil.
+              You are using an Anvil test account.
             </p>
             <p v-else-if="account && mode === 'signed'">
-              Podpisujesz transakcje kluczem w tej karcie.
+              Transactions are signed with a key in this tab.
             </p>
             <p v-else-if="account">
-              Połączony portfel:
+              Connected wallet:
               <span class="mono" :title="account">{{ shortAccount }}</span>
             </p>
-            <p v-else>
-              Połącz konto testowe lub portfel, aby zarządzać przedmiotami.
-            </p>
+            <p v-else>Connect a test account or wallet to manage assets.</p>
           </div>
           <div class="connection-actions">
             <button
@@ -374,8 +377,8 @@ onUnmounted(() => {
             >
               {{
                 account && mode === 'local'
-                  ? 'Połącz ponownie'
-                  : 'Użyj konta testowego Anvil'
+                  ? 'Reconnect'
+                  : 'Use Anvil test account'
               }}
             </button>
             <button
@@ -384,12 +387,12 @@ onUnmounted(() => {
               :disabled="busy"
               @click="connectSignedLocal"
             >
-              Użyj kont podpisywanych lokalnie
+              Use locally signed accounts
             </button>
           </div>
           <p class="signed-help">
-            Konta podpisywane powstają na tym komputerze. Ich klucze pozostają w
-            pamięci tej karty i znikną po jej odświeżeniu lub zamknięciu.
+            Locally signed accounts are created on this computer. Their keys
+            remain in this tab and are lost when it is refreshed or closed.
           </p>
         </div>
 
@@ -397,7 +400,7 @@ onUnmounted(() => {
           v-if="mode !== 'wallet' && localAccounts.length"
           class="local-account"
         >
-          <label for="local-account">Aktywne konto testowe</label>
+          <label for="local-account">Active test account</label>
           <select
             id="local-account"
             v-model="account"
@@ -410,27 +413,27 @@ onUnmounted(() => {
               :key="address"
               :value="address"
             >
-              Konto {{ index + 1 }} · {{ address }}
+              Account {{ index + 1 }} · {{ address }}
             </option>
           </select>
           <p id="local-account-help">
             {{
               mode === 'signed'
-                ? 'Podpis powstaje w przeglądarce; klucz nie jest wysyłany do backendu.'
-                : 'W trybie testowym transakcje są wysyłane bez potwierdzenia w portfelu.'
+                ? 'The browser signs transactions; the key is not sent to the backend.'
+                : 'In test mode, transactions are sent without wallet confirmation.'
             }}
           </p>
         </div>
 
         <div class="section-heading">
-          <h2 id="workspace-title">Zarządzaj przedmiotem</h2>
-          <p>Wpisz dane, a następnie wybierz operację.</p>
+          <h2 id="workspace-title">Manage asset</h2>
+          <p>Enter the details and choose an operation.</p>
         </div>
 
         <div class="grid">
           <div class="form-panel">
             <div class="field">
-              <label for="contract">Adres kontraktu</label>
+              <label for="contract">Contract address</label>
               <input
                 id="contract"
                 v-model.trim="contractAddress"
@@ -441,32 +444,30 @@ onUnmounted(() => {
                 @input="result = null"
               />
               <p id="contract-help" class="hint">
-                Adres wyświetlony po wdrożeniu kontraktu.
+                The address shown after deploying the contract.
               </p>
             </div>
 
             <div class="field">
-              <label for="token">ID przedmiotu</label>
+              <label for="token">Asset ID</label>
               <input
                 id="token"
                 v-model.trim="tokenId"
                 inputmode="numeric"
-                placeholder="np. 1"
+                placeholder="e.g. 1"
                 autocomplete="off"
                 aria-describedby="token-help"
                 @input="result = null"
               />
               <p id="token-help" class="hint">
-                Podaj numer istniejącego lub nowego przedmiotu.
+                Enter the ID of an existing or new asset.
               </p>
             </div>
 
             <div class="field">
               <label for="recipient"
-                >Adres odbiorcy
-                <span class="optional"
-                  >tylko przy wystawieniu lub przekazaniu</span
-                ></label
+                >Recipient address
+                <span class="optional">only for issue or transfer</span></label
               >
               <input
                 id="recipient"
@@ -481,15 +482,15 @@ onUnmounted(() => {
                 type="button"
                 @click="recipient = account"
               >
-                Wstaw adres aktywnego konta
+                Use active account address
               </button>
             </div>
           </div>
 
           <div class="action-panel">
-            <h3>Wybierz operację</h3>
+            <h3>Choose an operation</h3>
             <button type="button" :disabled="busy" @click="run('inspect')">
-              Sprawdź przedmiot
+              Inspect asset
             </button>
             <button
               class="action-primary"
@@ -497,19 +498,19 @@ onUnmounted(() => {
               :disabled="busy"
               @click="run('issue')"
             >
-              Wystaw przedmiot
+              Issue asset
             </button>
             <button type="button" :disabled="busy" @click="run('transfer')">
-              Przekaż przedmiot
+              Transfer asset
             </button>
             <button type="button" :disabled="busy" @click="run('redeem')">
-              Wykorzystaj przedmiot
+              Redeem asset
             </button>
             <p>
               {{
                 mode === 'local' || mode === 'signed'
-                  ? 'Transakcje wykonuje aktywne konto testowe.'
-                  : 'Transakcje wymagają potwierdzenia w portfelu.'
+                  ? 'Transactions use the active test account.'
+                  : 'Transactions require wallet confirmation.'
               }}
             </p>
           </div>
@@ -526,26 +527,26 @@ onUnmounted(() => {
         </div>
         <div v-if="result" class="result" aria-live="polite">
           <div>
-            <span>Przedmiot</span><strong>#{{ result.id }}</strong>
+            <span>Asset</span><strong>#{{ result.id }}</strong>
           </div>
           <div>
             <span>Status</span
-            ><strong :class="{ active: result.status === 'Aktywny' }">{{
+            ><strong :class="{ active: result.status === 'Active' }">{{
               result.status
             }}</strong>
           </div>
           <div class="owner">
-            <span>Właściciel</span><strong>{{ result.owner }}</strong>
+            <span>Owner</span><strong>{{ result.owner }}</strong>
           </div>
         </div>
       </section>
 
       <History :contract-address="contractAddress" />
       <p class="footnote">
-        Wykorzystany przedmiot zostaje u właściciela. Nie można go ponownie
-        wykorzystać ani przekazać.
+        A redeemed asset remains with its owner and cannot be redeemed or
+        transferred again.
       </p>
     </main>
-    <footer><span>ChainLoot</span><span>Środowisko lokalne</span></footer>
+    <footer><span>ChainLoot</span><span>Local environment</span></footer>
   </div>
 </template>

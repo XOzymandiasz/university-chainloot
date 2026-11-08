@@ -4,7 +4,7 @@ import { JsonRpcProvider } from 'ethers'
 import { withIsolatedChain } from './local-chain.mjs'
 
 test(
-  'T9–T10: pełna historia A3 i niezależny odczyt stanu z RPC',
+  'T9–T10: full A3 history and independent RPC state read',
   { timeout: 60000 },
   async () => {
     await withIsolatedChain(async ({ provider, items, url }) => {
@@ -65,7 +65,7 @@ test(
       assert.equal(events[3].args.owner, charlieAddress)
       assert.ok(events.every((event) => event.args.tokenId === 3n))
       console.log(
-        'T9 (kontrakt): SUCCESS — ISSUE, Alice→Bob, Bob→Charlie, REDEEM w kolejności chronologicznej',
+        'T9 (contract): SUCCESS — ISSUE, Alice→Bob, Bob→Charlie, REDEEM in chronological order',
       )
 
       // Independent raw RPC reads bypass both the frontend and application database.
@@ -97,9 +97,7 @@ test(
           items.interface.decodeFunctionResult('getStatus', statusRaw)[0],
           1n,
         )
-        console.log(
-          'T10: SUCCESS — bezpośredni RPC potwierdza Charlie i REDEEMED',
-        )
+        console.log('T10: SUCCESS — direct RPC confirms Charlie and REDEEMED')
       } finally {
         independent.destroy()
       }
