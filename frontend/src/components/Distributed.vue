@@ -45,7 +45,9 @@ const message = ref('')
 const messageKind = ref<'success' | 'error' | 'pending' | ''>('')
 const busy = ref(false)
 const lastSigned = ref<SignedOperation | null>(null)
+const addressCopied = ref(false)
 let timer: ReturnType<typeof setInterval> | undefined
+let copyTimer: ReturnType<typeof setTimeout> | undefined
 let disposed = false
 
 const activeIdentity = computed(() =>
@@ -56,7 +58,7 @@ function addressLabel(address: string) {
   const user = identities.value.find(
     (item) => item.address.toLowerCase() === address.toLowerCase(),
   )
-  return user ? user.name + ' · ' + address : address
+  return user ? user.name + ' | ' + address : address
 }
 
 const labels: Record<Action, string> = {
@@ -143,10 +145,33 @@ function canonicalId() {
     throw new Error('The ID must be an integer with at most 39 digits.')
   return BigInt(value).toString()
 }
+
+async function copyAddress() {
+  const address = activeIdentity.value?.address
+  if (!address) return
+  try {
+    await navigator.clipboard.writeText(address)
+  } catch {
+    const field = document.createElement('textarea')
+    field.value = address
+    field.setAttribute('readonly', '')
+    document.body.append(field)
+    field.select()
+    document.execCommand('copy')
+    field.remove()
+  }
+  addressCopied.value = true
+  clearTimeout(copyTimer)
+  copyTimer = setTimeout(() => {
+    addressCopied.value = false
+  }, 1500)
+}
+
 function setMessage(kind: 'success' | 'error' | 'pending', text: string) {
   messageKind.value = kind
   message.value = text
 }
+
 async function addUser() {
   busy.value = true
   message.value = ''
@@ -165,6 +190,7 @@ async function addUser() {
     busy.value = false
   }
 }
+
 async function inspect() {
   busy.value = true
   message.value = ''
@@ -290,6 +316,7 @@ onMounted(async () => {
 onUnmounted(() => {
   disposed = true
   clearInterval(timer)
+  clearTimeout(copyTimer)
 })
 </script>
 
@@ -389,11 +416,14 @@ onUnmounted(() => {
             :key="user.address"
             :value="user.address"
           >
-            {{ user.name }} · {{ user.address }}
+            {{ user.name }} | {{ user.address }}
           </option>
         </select>
         <p v-if="activeIdentity" class="current-address">
           Address: <code>{{ activeIdentity.address }}</code>
+          <button class="use-account" type="button" @click="copyAddress">
+            {{ addressCopied ? 'Copied' : 'Copy address' }}
+          </button>
         </p>
       </section>
 
@@ -611,8 +641,17 @@ onUnmounted(() => {
 .identity-form button {
   flex-shrink: 0;
 }
+.current-address {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
 .current-address code {
   overflow-wrap: anywhere;
+}
+.current-address .use-account {
+  margin-top: 0;
 }
 .distributed-grid {
   display: grid;
