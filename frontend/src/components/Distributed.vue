@@ -60,9 +60,13 @@ const labels: Record<Action, string> = {
 function nodeUrl(node: NodeId, path: string) {
   return '/nodes/' + node + path
 }
-async function getJson<T>(node: NodeId, path: string): Promise<T> {
+async function getJson<T>(
+  node: NodeId,
+  path: string,
+  timeoutMs = 5000,
+): Promise<T> {
   const response = await fetch(nodeUrl(node, path), {
-    signal: AbortSignal.timeout(5000),
+    signal: AbortSignal.timeout(timeoutMs),
   })
   if (!response.ok)
     throw new Error(
@@ -70,6 +74,44 @@ async function getJson<T>(node: NodeId, path: string): Promise<T> {
     )
   return response.json() as Promise<T>
 }
+
+function operationIsVisible(
+  operation: SignedOperation,
+  current: Asset,
+  events: SignedOperation[],
+) {
+  if (!events.some((entry) => entry.operationId === operation.operationId))
+    return false
+  if (operation.type === 'redeem')
+    return current.status === 'REDEEMED' && current.owner === operation.sender
+  return current.status === 'ACTIVE' && current.owner === operation.recipient
+}
+
+async function readAppliedOperation(node: NodeId, operation: SignedOperation) {
+  const deadline = Date.now() + 1200
+  while (!disposed) {
+    try {
+      const [current, events] = await Promise.all([
+        getJson<Asset>(node, '/cluster/assets/' + operation.assetId, 1000),
+        getJson<SignedOperation[]>(
+          node,
+          '/cluster/history/' + operation.assetId,
+          1000,
+        ),
+      ])
+      if (operationIsVisible(operation, current, events)) {
+        asset.value = current
+        history.value = events
+        return
+      }
+    } catch {
+      // The selected follower can be one heartbeat behind the commit.
+    }
+    if (Date.now() >= deadline) return
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
+}
+
 async function refreshNodes() {
   const results = await Promise.all(
     nodes.map(async (node) => {
@@ -142,16 +184,15 @@ async function inspect() {
     busy.value = false
   }
 }
+
 async function send(operation: SignedOperation) {
-  const response = await fetch(
-    nodeUrl(selectedNode.value, '/cluster/operations'),
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(operation),
-      signal: AbortSignal.timeout(12000),
-    },
-  )
+  const node = selectedNode.value
+  const response = await fetch(nodeUrl(node, '/cluster/operations'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(operation),
+    signal: AbortSignal.timeout(12000),
+  })
   const result = (await response.json()) as OperationResult
   if (!['SUCCESS', 'REJECTED', 'PENDING'].includes(result.status))
     throw new Error('Unknown operation result.')
@@ -164,21 +205,7 @@ async function send(operation: SignedOperation) {
     result.status + ': ' + result.message,
   )
   await refreshNodes()
-  if (result.status === 'SUCCESS') {
-    try {
-      const id = operation.assetId
-      asset.value = await getJson<Asset>(
-        selectedNode.value,
-        '/cluster/assets/' + id,
-      )
-      history.value = await getJson<SignedOperation[]>(
-        selectedNode.value,
-        '/cluster/history/' + id,
-      )
-    } catch {
-      // A follower may need another heartbeat before its local view catches up.
-    }
-  }
+  if (result.status === 'SUCCESS') await readAppliedOperation(node, operation)
 }
 async function operate(type: Action) {
   let sent = false
